@@ -5,8 +5,6 @@ using module ".\Classes\PsChatUi.psm1"
 
 $ErrorActionPreference = "Stop"
 
-$OPENAI_AUTH_TOKEN=$ENV:OPENAI_AUTH_TOKEN
-
 function Get-PsChatAnswer {
     <#
     .SYNOPSIS
@@ -70,7 +68,7 @@ function Get-PsChatAnswer {
 
     Begin {
         # Initialize any variables or resources needed for the function
-        $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $OPENAI_AUTH_TOKEN }
+        $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
         $chatApi = [OpenAiChat]::new($authToken)
         if($Temperature) { $chatApi.Temperature = $Temperature }
         if($Top_P) { $chatApi.Top_p = $Top_P }
@@ -184,7 +182,7 @@ function Invoke-PsChat {
     $options.PreLoadMessagesPath = $PreLoadMessagesPath
 
     # initialize the api
-    $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $OPENAI_AUTH_TOKEN }
+    $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
     $chat = [PsChatUi]::new($authToken, $options)
 
     if($Temperature) { $chat.ChatApi.Temperature = $Temperature }
@@ -212,8 +210,6 @@ function New-OpenAiChat {
     )
 
     # initialize the api
-    $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $OPENAI_AUTH_TOKEN }
+    $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
     return [OpenAiChat]::new($authToken)
 }
-
-Export-ModuleMember -Function Invoke-PsChat, Get-PsChatAnswer, New-OpenAiChat
