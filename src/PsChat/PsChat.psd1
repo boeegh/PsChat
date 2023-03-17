@@ -26,7 +26,7 @@
 
     PrivateData = @{
         PSData = @{
-            Tags        = 'OpenAi','ChatGPT','Terminal','Chat','Completion', 'PSEdition_Desktop', 'PSEdition_Core', 'Windows', 'Linux', 'MacOS'
+            Tags        = 'OpenAi','ChatGPT','Terminal','Chat','Completion', 'PSEdition_Core', 'Windows', 'Linux', 'MacOS'
             ProjectUri  = "https://github.com/boeegh/PsChat/"
             LicenseUri  = "https://github.com/boeegh/PsChat/blob/main/LICENSE"
             IconUri     = 'https://github.com/boeegh/PsChat/raw/main/assets/logo.png'
