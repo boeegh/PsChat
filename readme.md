@@ -9,14 +9,20 @@ I made it to use and explore ChatGPT the place, I mostly find myself: In the she
 
 The module requires OpenAI API access. You can get an API key from: https://platform.openai.com/signup
 
-## Usage
+## Getting started
 ```Powershell
+# install module from PSGallery
+Install-Module PsChat -Force
+
 # get an openai api key and put it in a env variable
 $ENV:OPENAI_AUTH_TOKEN="my-secret-token"
 
 # start a chat session
 Invoke-PsChat
+```
 
+## Usage
+```Powershell
 # start a chat session with a question
 Invoke-PsChat "Lets talk Powershell"
 
