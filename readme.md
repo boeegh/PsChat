@@ -40,6 +40,9 @@ Get-Help Invoke-PsChat
 Get-Help Get-PsChatAnswer
 ```
 
+## Screenshot(s)
+![Screenshot of the chat UI.](/assets/Screenshot-Invoke-PsChat.png)
+
 ## Extensions
 Extension-framework is wip, but a few built-in extensions are available:
 * `AutoSave` - Saves the chat to json (which can later be loaded back in)
