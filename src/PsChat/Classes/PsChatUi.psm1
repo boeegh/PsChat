@@ -13,6 +13,7 @@ class PsChatUi {
     [OpenAiChat]$ChatApi
     [Dialog]$Dialog
     [ExtensionContainer]$ExtensionContainer
+    [bool]$Stream = $true
 
     PsChatUi([string]$openAiAuthKey, [Options]$options) {
         $this.OpenAiAuthKey = $openAiAuthKey
@@ -63,11 +64,18 @@ class PsChatUi {
 
     [Dialog] Invoke([Dialog]$dlg) {
         $dlg.AddMessage("user", $dlg.Question)
-        $answer = $this.ChatApi.GetAnswer($dlg.Messages)
-        if($null -ne $answer) {
+        $answer = $null
+        if($this.Stream) {
+            $answer = $this.ChatApi.GetStreamedAnswer($dlg.Messages)
+        } else {
+            $answer = $this.ChatApi.GetAnswer($dlg.Messages)
             [OutHelper]::Gpt($answer)
+        }
+
+        if($null -ne $answer) {
             $dlg.AddMessage("assistant", $answer)
         }
+
         return $dlg
     }
 }
