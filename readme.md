@@ -7,6 +7,8 @@ The module consists of two functions:
 
 I made it to use and explore ChatGPT the place, I mostly find myself: In the shell.
 
+The module requires OpenAI API access. You can get an API key from: https://platform.openai.com/signup
+
 ## Usage
 ```Powershell
 # get an openai api key and put it in a env variable
