@@ -31,6 +31,18 @@ function Get-PsChatAnswer {
         @{ "role"="user"; "content"="whats your name?" }
     )
 
+    .PARAMETER NumberOfAnswers
+    The number of answers to return. Default is 1.
+
+    .PARAMETER OpenAiAuthToken
+    The OpenAI API key. If not specified, the value of $ENV:OPENAI_AUTH_TOKEN is used.
+
+    .PARAMETER Temperature
+    The temperature of the model. Higher values means the model will take more risks. Default is 0.9.
+
+    .PARAMETER Top_P
+    The cumulative probability for top-p sampling. Default is 1.
+
     .EXAMPLE
     Get-PsChatAnswer "What is your name?" # Asks OpenAI Chat for its name.
 
@@ -135,6 +147,15 @@ function Invoke-PsChat {
     This parameter is optional, and takes an Integer datatype. Its default value is 300 to minimize cost.
     You can you the 'z' command to compress the dialog into a single message.
 
+    .PARAMETER OpenAiAuthToken
+    The OpenAI API key. If not specified, the value of $ENV:OPENAI_AUTH_TOKEN is used.
+
+    .PARAMETER Temperature
+    The temperature of the model. Higher values means the model will take more risks. Default is 0.9.
+
+    .PARAMETER Top_P
+    The cumulative probability for top-p sampling. Default is 1.
+
     .EXAMPLE
     Invoke-PsChat "What is your name?" # Start a chat by asking OpenAI Chat for its name.
 
@@ -173,4 +194,26 @@ function Invoke-PsChat {
     return
 }
 
-Export-ModuleMember -Function Invoke-PsChat, Get-PsChatAnswer
+function New-OpenAiChat {
+    <#
+    .SYNOPSIS
+    Instantiates the OpenAiChat API wrapper for external use cases.
+
+    .DESCRIPTION
+    This function creates an instance of OpenAiChat, the internal wrapper class for the OpenAI Chat Completion API.
+
+    .PARAMETER AuthToken
+    The OpenAI API key to use for authentication.
+
+    .EXAMPLE
+    #>
+    param(
+        [string]$OpenAiAuthToken
+    )
+
+    # initialize the api
+    $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $OPENAI_AUTH_TOKEN }
+    return [OpenAiChat]::new($authToken)
+}
+
+Export-ModuleMember -Function Invoke-PsChat, Get-PsChatAnswer, New-OpenAiChat
