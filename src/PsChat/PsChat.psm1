@@ -1,0 +1,176 @@
+using module ".\Private\OutHelper.psm1"
+using module ".\Classes\Options.psm1"
+using module ".\Classes\OpenAiChat.psm1"
+using module ".\Classes\PsChatUi.psm1"
+
+$ErrorActionPreference = "Stop"
+
+$OPENAI_AUTH_TOKEN=$ENV:OPENAI_AUTH_TOKEN
+
+function Get-PsChatAnswer {
+    <#
+    .SYNOPSIS
+    Request an answer from OpenAI Chat Completion.
+
+    .DESCRIPTION
+    This function is a wrapper around OpenAI Chat Completion. It takes a question and returns an answer.
+
+    Please note $ENV:OPENAI_AUTH_TOKEN must be set with a valid OpenAI API key.
+
+    .PARAMETER InputObject
+    The question (which may include message history) to ask. Must be either:
+    1) A string or an array of strings, eg. "hello" or @("hello", "whats your name?")
+    2) A hashtable/object, eg. @{ "role"="user"; "content"="hello" } or
+       @( @{ "role"="user"; "content"="hello" }, @{ "role"="assistant"; "content"="hello" } )
+
+    .PARAMETER NoEnumerate
+    If set, the InputObject is not enumerated. This is useful if you want to pass an array of hashtables/objects, eg.:
+    @(
+        @{ "role"="user"; "content"="hello" }
+        @{ "role"="assistant"; "content"="hello" }
+        @{ "role"="user"; "content"="whats your name?" }
+    )
+
+    .EXAMPLE
+    Get-PsChatAnswer "What is your name?" # Asks OpenAI Chat for its name.
+
+    .EXAMPLE
+    "Hello OpenAI" | Get-PsChatAnswer # Says hello to OpenAI using pipes.
+
+    .EXAMPLE
+    $dialog = @(
+        @{ "role"="user"; "content"="Hello OpenAI. Can we talk Powershell?" },
+        @{ "role"="assistant"; "content"="Hello! Of course, we can talk about PowerShell. What would you like to know or discuss?" },
+        @{ "role"="user"; "content"="How does piping work?" }
+        )
+    Get-PsChatAnswer -InputObject $dialog -NoEnumerate # Asks OpenAI a question, based on previous messages.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline=$true)]
+        [PSObject[]]$InputObject,
+        [Switch]$NoEnumerate,
+        [int]$NumberOfAnswers = 1,
+        [string]$OpenAiAuthToken,
+        [decimal]$Temperature,
+        [decimal]$Top_P
+    )
+
+    Begin {
+        # Initialize any variables or resources needed for the function
+        $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $OPENAI_AUTH_TOKEN }
+        $chatApi = [OpenAiChat]::new($authToken)
+        if($Temperature) { $chatApi.Temperature = $Temperature }
+        if($Top_P) { $chatApi.Top_p = $Top_P }
+        if($NumberOfAnswers -ne 1) { $chatApi.N = $NumberOfAnswers }
+    }
+
+    Process {
+        # handle array of hashtable/object, eg. @( @{ "role"="user"; "content"="hello" } )
+        if($NoEnumerate -and $InputObject -is [array]) {
+            Write-Output -InputObject $chatApi.GetAnswer($InputObject)
+        } else {
+            # iterate over each item in the pipeline
+            foreach ($item in $InputObject) {
+                $messages = @()
+
+                $answer = $null
+
+                # handle string, eg. "hello"
+                if($item -is [string]) {
+                    $messages += [OpenAiChatMessage]::ToAssistant($item)
+                    $answer = $chatApi.GetAnswer($messages)
+                }
+
+                # handle hashtable/object, eg. @{ "role"="user"; "content"="hello" }
+                if($item -is [Hashtable]) {
+                    $messages += $item
+                    $answer = $chatApi.GetAnswer($messages)
+                }
+
+                if($null -ne $answer) {
+                    Write-Output -InputObject $answer
+                }
+            }
+        }
+    }
+
+    End {
+    }
+}
+
+function Invoke-PsChat {
+    <#
+    .SYNOPSIS
+    Create an interactive chat session with OpenAI Chat Completion in Powershell.
+
+    .DESCRIPTION
+    This function creates an interactive chat session with OpenAI Chat Completion in Powershell.
+
+    You can press 'h' in the chat to get help.
+
+    Please note $ENV:OPENAI_AUTH_TOKEN must be set with a valid OpenAI API key.
+
+    .PARAMETER Question
+    The initial question to ask the OpenAI Chat. This parameter is optional.
+
+    .PARAMETER Single
+    Specifies that the execution will end after the response to the initial question.
+    This parameter is optional.
+
+    .PARAMETER PreLoadMessagesPath
+    Specifies the path to a JSON-file containing chat messages (useful for providing context).
+    This parameter is optional.
+
+    .PARAMETER AutoSave
+    Specifies whether the chat messages should be autosaved or not.
+    This parameter is optional, and takes a Switch datatype.
+
+    .PARAMETER AutoSavePath
+    Specifies the path (file name) to where autosaved chat messages should be stored.
+    This parameter is optional.
+
+    .PARAMETER WordCountWarningThreshold
+    Specifies the maximum number of words before a warning should be issued.
+    This parameter is optional, and takes an Integer datatype. Its default value is 300 to minimize cost.
+    You can you the 'z' command to compress the dialog into a single message.
+
+    .EXAMPLE
+    Invoke-PsChat "What is your name?" # Start a chat by asking OpenAI Chat for its name.
+
+    .EXAMPLE
+    Invoke-PsChat "What is your name?" -Single # Asks the question and quits.
+    #>
+	param(
+        # Initial invocation parameters
+        [Parameter(Position=0)][string]$Question,
+        [Parameter(Position=1)][Switch]$Single,
+        # Options for the chat
+        [string]$PreLoadMessagesPath,
+        [Switch]$AutoSave,
+        [string]$AutoSavePath,
+        [int]$WordCountWarningThreshold = 300,
+        # API parameters
+        [string]$OpenAiAuthToken,
+        [decimal]$Temperature,
+        [decimal]$Top_P
+        )
+
+    $options = [Options]::new()
+    $options.AutoSave = $AutoSave
+    $options.AutoSavePath = $AutoSavePath
+    $options.WordCountWarningThreshold = $WordCountWarningThreshold
+    $options.PreLoadMessagesPath = $PreLoadMessagesPath
+
+    # initialize the api
+    $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $OPENAI_AUTH_TOKEN }
+    $chat = [PsChatUi]::new($authToken, $options)
+
+    if($Temperature) { $chat.ChatApi.Temperature = $Temperature }
+    if($Top_P) { $chat.ChatApi.Top_p = $Top_P }
+
+    $chat.Start($Question, $Single)
+    return
+}
+
+Export-ModuleMember -Function Invoke-PsChat, Get-PsChatAnswer
