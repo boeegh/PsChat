@@ -4,11 +4,13 @@ using module ..\Options.psm1
 using module "..\..\Private\OutHelper.psm1"
 
 class WordCountWarning {
-    [Dialog] BeforeQuestion([OpenAiChat]$chatApi, [Options]$options, [Dialog]$dialog) {
-        if($dialog.GetWordCount() -gt $options.WordCountWarningThreshold) {
+    [bool]$Enabled = $true
+    [int]$Threshold = 500
+
+    [Dialog] BeforeQuestion([Dialog]$dialog) {
+        if($this.Enabled -and $dialog.GetWordCount() -gt $this.Threshold) {
             [OutHelper]::Info("Current word count is $($dialog.GetWordCount())")
         }
         return $dialog
     }
 }
-

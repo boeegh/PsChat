@@ -128,19 +128,19 @@ function Invoke-PsChat {
     Specifies that the execution will end after the response to the initial question.
     This parameter is optional.
 
-    .PARAMETER PreLoadMessagesPath
+    .PARAMETER PreLoad_Path
     Specifies the path to a JSON-file containing chat messages (useful for providing context).
     This parameter is optional.
 
-    .PARAMETER AutoSave
+    .PARAMETER AutoSave_Enabled
     Specifies whether the chat messages should be autosaved or not.
     This parameter is optional, and takes a Switch datatype.
 
-    .PARAMETER AutoSavePath
+    .PARAMETER AutoSave_Path
     Specifies the path (file name) to where autosaved chat messages should be stored.
     This parameter is optional.
 
-    .PARAMETER WordCountWarningThreshold
+    .PARAMETER WordCountWarning_Threshold
     Specifies the maximum number of words before a warning should be issued.
     This parameter is optional, and takes an Integer datatype. Its default value is 300 to minimize cost.
     You can you the 'z' command to compress the dialog into a single message.
@@ -164,23 +164,17 @@ function Invoke-PsChat {
         # Initial invocation parameters
         [Parameter(Position=0)][string]$Question,
         [Parameter(Position=1)][Switch]$Single,
-        # Options for the chat
-        [string]$PreLoadMessagesPath,
-        [Switch]$AutoSave,
-        [string]$AutoSavePath,
-        [int]$WordCountWarningThreshold = 300,
         # API parameters
         [string]$OpenAiAuthToken,
         [decimal]$Temperature,
         [decimal]$Top_P,
-        [bool]$Stream = $true
+        [bool]$Stream = $true,
+        [Parameter(ValueFromRemainingArguments=$true)]
+        [object[]]$AdditionalArguments
         )
 
     $options = [Options]::new()
-    $options.AutoSave = $AutoSave
-    $options.AutoSavePath = $AutoSavePath
-    $options.WordCountWarningThreshold = $WordCountWarningThreshold
-    $options.PreLoadMessagesPath = $PreLoadMessagesPath
+    $options.AdditionalArguments = $AdditionalArguments
 
     # initialize the api
     $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }

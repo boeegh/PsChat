@@ -5,6 +5,7 @@ using namespace System.IO
 using namespace System.Net.Http
 using namespace System.Net.Http.Formatting
 using namespace System.Net.Http.Headers
+using namespace System.Web
 using namespace System.Web.Extensions
 
 class OpenAiChatMessage {
@@ -31,6 +32,8 @@ class OpenAiChat {
     [decimal]$Temperature
     [decimal]$Top_p
     [int]$N
+    [HttpClient]$httpClient
+    [string]$httpContentType = "application/json"
 
     OpenAiChat([string]$authToken) {
         $this.AuthToken = $authToken
@@ -44,7 +47,8 @@ class OpenAiChat {
     [object] Invoke([object]$messages, [bool]$useStream) {
         $encoded = @()
         $messages | ForEach-Object {
-            $encoded += @{ "role" = $_.role; "content" = [System.Web.HttpUtility]::UrlEncode($_.content); }
+            $encoded += @{ "role" = $_.role; "content" = [HttpUtility]::UrlEncode($_.content); }
+#            $encoded += @{ "role" = $_.role; "content" = $_.content; }
         }
 
         # construct body
@@ -67,7 +71,6 @@ class OpenAiChat {
         $url = "https://api.openai.com/v1/chat/completions"
 
         $headers = @{
-            "Content-Type" = "application/json"
             "Authorization" = "Bearer $($this.AuthToken)"
         }
 
@@ -84,6 +87,7 @@ class OpenAiChat {
             if($useStream) {
                 return $this.InvokeRequestObjectStream($url, $headers, $body)
             } else {
+                $headers["Content-Type"] = $this.httpContentType
                 $response = Invoke-RestMethod -Method 'POST' -Uri $url -Headers $headers -Body $body
             }
 
@@ -99,35 +103,36 @@ class OpenAiChat {
     }
 
     [object] InvokeRequestObjectStream($url, $headers, $body) {
-        # [OutHelper]::Gpt("STREAMING")
+        Write-Debug "Streaming response"
 
-        $client = [HttpClient]::new()
+        if(!$this.httpClient) {
+            $this.httpClient = [HttpClient]::new()
+        }
 
         # create an HTTP request with a range header to receive only a specific chunk of data
         $request = [HttpRequestMessage]::new([HttpMethod]::Post, [Uri]::new($url))
         foreach($key in $headers.Keys) {
-            if($key -eq "Content-Type") {
-                continue
-            }
             $request.Headers.Add($key, $headers[$key])
         }
         $request.Headers.Range = [RangeHeaderValue]::new(0, 1024)
-        $request.Content = [StringContent]::new($body, [Encoding]::UTF8, $headers["Content-Type"])
+        $request.Content = [StringContent]::new($body, [Encoding]::UTF8, $this.httpContentType)
 
         # send the HTTP request and get the response
-        $response = $client.SendAsync($request, [HttpCompletionOption]::ResponseHeadersRead).Result
+        $response = $this.httpClient.SendAsync($request, [HttpCompletionOption]::ResponseHeadersRead).Result
         if(!$response.IsSuccessStatusCode) {
             throw "An error occurred: $($response.StatusCode)"
         }
 
         $choices = @{}
         [OutHelper]::GptDelta("", $true) # writes GPT:
+
+        $streamReader = [StreamReader]::new($response.Content.ReadAsStreamAsync().Result)
         try {
             # read the response content as a stream of JSON data
-            $streamReader = New-Object System.IO.StreamReader($response.Content.ReadAsStreamAsync().Result)
             $dataPrefix = "data: "
             while (!$streamReader.EndOfStream)
             {
+                # each line will begin with "data: ", the final line will be "data: [DONE]"
                 $line = $streamReader.ReadLine()
                 if (!$line.StartsWith($dataPrefix)) {
                     continue
@@ -139,38 +144,42 @@ class OpenAiChat {
                 # [OutHelper]::Gpt($line)
 
                 $chunk = $line | ConvertFrom-Json
-                if($chunk.choices -and $chunk.choices.Count -eq 1) { # assuming 1 choice per chunk
-                    # update the choices array with the new choice
-                    $delta = $chunk.choices[0].delta # {"content":" you"}
-                    $index = "i$($chunk.choices[0].index)" # 0
+                if(!$chunk.choices -or $chunk.choices.Count -ne 1) {
+                    continue
+                }
 
-                    if(!$choices[$index]) {
-                        $choices[$index] = @{}
+                # update the choices array with the new choice
+                $delta = $chunk.choices[0].delta # {"content":" you"}
+                $index = "i$($chunk.choices[0].index)" # 0
+
+                if(!$choices[$index]) {
+                    $choices[$index] = @{}
+                }
+
+                $initalValue = $false
+                foreach($nameValue in $delta.PSObject.Properties) {
+                    $key = $nameValue.Name
+                    $value = $nameValue.Value
+
+                    if(!$choices[$index].$key) {
+                        $choices[$index].$key = $value
+                        $initalValue = $true
+                    } else {
+                        $choices[$index].$key += $value
                     }
 
-                    $initalValue = $false
-                    foreach($nameValue in $delta.PSObject.Properties) {
-                        $key = $nameValue.Name
-                        $value = $nameValue.Value
-
-                        if(!$choices[$index].$key) {
-                            $choices[$index].$key = $value
-                            $initalValue = $true
-                        } else {
-                            $choices[$index].$key += $value
+                    # output new content (delta) to user
+                    if($index -eq "i0" -and $key -eq "content") {
+                        if($initalValue) {
+                            $value = $value.TrimStart()
                         }
-
-                        if($index -eq "i0" -and $key -eq "content") {
-                            if($initalValue) {
-                                $value = $value.TrimStart()
-                            }
-                            [OutHelper]::GptDelta($value, $false)
-                        }
+                        $value = [HttpUtility]::UrlDecode($value)
+                        [OutHelper]::GptDelta($value, $false)
                     }
                 }
             }
         } finally {
-            # $streamReader.Dispose()
+            $streamReader.Dispose()
         }
         [OutHelper]::GptDelta("`n", $false)
 
@@ -178,7 +187,7 @@ class OpenAiChat {
 
         $answers = @()
         foreach($choice in $choices.Values) {
-            $answers += $choice.content.Trim()
+            $answers += [HttpUtility]::UrlDecode($choice.content.Trim())
         }
         # [OutHelper]::Gpt(($answers | ConvertTo-Json -AsArray -Depth 10))
 
@@ -208,10 +217,10 @@ class OpenAiChat {
             # if multiple choices are requested, return an array of strings
             if($this.N -gt 1) {
                 Write-Debug "N=$($this.N), returning array of $($response.choices.length) strings"
-                return $response.choices | ForEach-Object { [System.Web.HttpUtility]::UrlDecode($_.message.content.Trim()) }
+                return $response.choices | ForEach-Object { [HttpUtility]::UrlDecode($_.message.content.Trim()) }
             }
 
-            return [System.Web.HttpUtility]::UrlDecode($response.choices.message.content.Trim())
+            return [HttpUtility]::UrlDecode($response.choices.message.content.Trim())
         } else {
             return $null
         }

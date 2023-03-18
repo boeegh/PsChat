@@ -38,14 +38,6 @@ class Dialog {
         $this.Question = $null
     }
 
-    LoadMessages([string]$path) {
-        if($path -and (Test-Path $path)) {
-            [OutHelper]::Info("Reading message from: $path")
-            $this.Messages = Get-Content $path | ConvertFrom-Json -NoEnumerate
-            [OutHelper]::Info("$($this.Messages.count) messages loaded, approx. $($this.GetWordCount()) words.")
-        }
-    }
-
     [string] GetMessageFormatted([object]$message) {
         $from = "SYSTEM"
         switch($message.role) {

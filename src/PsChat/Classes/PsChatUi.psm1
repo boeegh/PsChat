@@ -6,6 +6,7 @@ using module ".\Dialog.psm1"
 using module ".\Extensions\ExtensionContainer.psm1"
 using module ".\Extensions\WordCountWarning.psm1"
 using module ".\Extensions\AutoSave.psm1"
+using module ".\Extensions\PreLoad.psm1"
 
 class PsChatUi {
     [string]$OpenAiAuthKey
@@ -24,6 +25,7 @@ class PsChatUi {
         $this.ExtensionContainer = [ExtensionContainer]::new($this.ChatApi, $this.Options, @(
             [WordCountWarning]::new()
             [AutoSave]::new()
+            [PreLoad]::new()
         ))
     }
 
@@ -32,11 +34,6 @@ class PsChatUi {
 
         $dlg = $this.Dialog
         $dlg.Question = $Question
-
-        if($this.Options.PreLoadMessagesPath) {
-            $dlg.LoadMessages($this.Options.PreLoadMessagesPath)
-        }
-
         $dlg = $this.ExtensionContainer.Invoke("BeforeChatLoop", $dlg)
 
         do {
@@ -44,6 +41,7 @@ class PsChatUi {
             if(![string]::IsNullOrEmpty($dlg.Question)) {
                 $dlg = $this.ExtensionContainer.Invoke("BeforeAnswer", $dlg)
                 $dlg = $this.Invoke($dlg)
+                $dlg = $this.ExtensionContainer.Invoke("AfterAnswer", $dlg)
                 if($Single) { break }
             }
 
