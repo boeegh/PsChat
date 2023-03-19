@@ -55,6 +55,8 @@ Get-Help Get-PsChatAnswer
 Extension-framework is wip, but a few built-in extensions are available:
 * `AutoSave` - Saves the chat to json (which can later be loaded back in)
 * `WordCountWarning` - Informs the user when a certain word-count is reached (for cost-saving purposes)
+* `PreLoad` - Preloads messages from a file or string. Optionally "lock" the loaded messages
+* `Commands` - In-chat commands, such as clipboard access and API settings
 
 ## Commands
 Commands are extensions for the UI chat. These are available when the user enters `'h'` in the chat.

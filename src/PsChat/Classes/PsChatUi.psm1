@@ -7,6 +7,7 @@ using module ".\Extensions\WordCountWarning.psm1"
 using module ".\Extensions\AutoSave.psm1"
 using module ".\Extensions\PreLoad.psm1"
 using module ".\Extensions\Commands.psm1"
+using module ".\Extensions\ShortTerm.psm1"
 
 class PsChatUi {
     [string]$OpenAiAuthKey
@@ -27,6 +28,7 @@ class PsChatUi {
             [AutoSave]::new()
             [PreLoad]::new()
             [Commands]::new()
+            [ShortTerm]::new()
         ))
     }
 

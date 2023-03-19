@@ -55,7 +55,12 @@ class Dialog {
         return $export
     }
 
+    static [int] CalculateWords($messages) {
+        return $messages | ForEach-Object { $_.content.split(" ").count } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+    }
+
     [int] GetWordCount() {
-        return $this.Messages | ForEach-Object { $_.content.split(" ").count } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+        return [Dialog]::CalculateWords($this.Messages)
+        # return $this.Messages | ForEach-Object { $_.content.split(" ").count } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
     }
 }

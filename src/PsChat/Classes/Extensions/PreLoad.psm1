@@ -7,28 +7,20 @@ class PreLoad {
     [bool]$Lock # ensures that the initial messages are always the first in the dialog
     [object[]]$InitialMessages
 
-    [bool]AreEqual($a, $b) {
-        if($a.role -ne $b.role) { return $false }
-        if($a.content -ne $b.content) { return $false }
-        return $true
-    }
-
     [Dialog] BeforeAnswer([Dialog]$dialog) {
         if(!$this.Lock) { return $dialog }
 
-        $index = 0
-        foreach($m in $this.InitialMessages) {
-            if($this.AreEqual($m, $dialog.Messages[$index])) {
-                # Write-Debug "PreLoad: skipping message $($index)"
-                $index++
+        # remove any "locked" messages
+        $nlm = @()
+        foreach($m in $dialog.Messages) {
+            if($m.locked) {
                 continue
             }
-            break
+            $nlm += $m
         }
-        # Write-Debug "PreLoad: Conversation starts at $($index)"
-        $dialog.Messages = $this.InitialMessages += $dialog.Messages[$index..($dialog.Messages.count)]
 
-        # [OutHelper]::Info("`n$($dialog.ExportMessages($false))")
+        # re-insert locked messages
+        $dialog.Messages = $this.InitialMessages += $nlm
 
         return $dialog
     }
@@ -43,17 +35,28 @@ class PreLoad {
         $p = $this.Path
         if($p -and (Test-Path $p)) {
             [OutHelper]::Info("- Preloading messages from: $p")
-            $this.InitialMessages = Get-Content $p | ConvertFrom-Json -NoEnumerate
-            $dialog.Messages = $this.InitialMessages
-            [OutHelper]::Info("- $($dialog.Messages.count) messages loaded, approx. $($dialog.GetWordCount()) words.")
+            $this.InitialMessages = Get-Content $p | ConvertFrom-Json -NoEnumerate -AsHashtable
         }
 
         # load from prompt
         if($this.Prompt) {
             $this.InitialMessages = @( @{ "role" = "user"; "content" = $this.Prompt } )
-            $dialog.Messages = $this.InitialMessages
-            [OutHelper]::Info("- Preloaded prompt, approx. $($dialog.GetWordCount()) words.")
         }
+
+        if(!$this.InitialMessages) {
+            return $dialog
+        }
+
+        [OutHelper]::Info("- $($this.InitialMessages.Count) messages loaded, approx. $([Dialog]::CalculateWords($this.InitialMessages)) words.")
+
+        if($this.Lock) {
+            # mark messages as locked
+            foreach($m in $this.InitialMessages) {
+                $m.locked = $true
+            }
+        }
+
+        $dialog.Messages = $this.InitialMessages
 
         return $dialog
     }

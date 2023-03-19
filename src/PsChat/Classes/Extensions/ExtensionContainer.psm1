@@ -70,7 +70,7 @@ class ExtensionContainer {
             if($method) {
                 Write-Debug "ExtensionContainer: Invoking $($method.Name) on $($_.GetType().Name)"
                 $arguments = @( $dialog)
-                $method.Invoke($_, $arguments)
+                $dialog = $method.Invoke($_, $arguments)
             }
         }
         return $dialog
