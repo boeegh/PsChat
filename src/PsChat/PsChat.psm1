@@ -132,6 +132,10 @@ function Invoke-PsChat {
     Specifies the path to a JSON-file containing chat messages (useful for providing context).
     This parameter is optional.
 
+    .PARAMETER PreLoad_Lock
+    The preloaded messages will always be prefixed to the dialog, keeping the context.
+    This parameter is optional.
+
     .PARAMETER AutoSave_Enabled
     Specifies whether the chat messages should be autosaved or not.
     This parameter is optional, and takes a Switch datatype.
@@ -175,6 +179,8 @@ function Invoke-PsChat {
 
     $options = [Options]::new()
     $options.AdditionalArguments = $AdditionalArguments
+    $options.InitialQuestion = $Question
+    $options.SingleQuestion = $Single
 
     # initialize the api
     $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
@@ -184,7 +190,7 @@ function Invoke-PsChat {
     if($Temperature) { $chat.ChatApi.Temperature = $Temperature }
     if($Top_P) { $chat.ChatApi.Top_p = $Top_P }
 
-    $chat.Start($Question, $Single)
+    $chat.Start()
     return
 }
 

@@ -34,6 +34,7 @@ class OpenAiChat {
     [int]$N
     [HttpClient]$httpClient
     [string]$httpContentType = "application/json"
+    [bool]$_debug = $false
 
     OpenAiChat([string]$authToken) {
         $this.AuthToken = $authToken
@@ -47,8 +48,8 @@ class OpenAiChat {
     [object] Invoke([object]$messages, [bool]$useStream) {
         $encoded = @()
         $messages | ForEach-Object {
-            $encoded += @{ "role" = $_.role; "content" = [HttpUtility]::UrlEncode($_.content); }
-#            $encoded += @{ "role" = $_.role; "content" = $_.content; }
+#            $encoded += @{ "role" = $_.role; "content" = [HttpUtility]::UrlEncode($_.content); }
+            $encoded += @{ "role" = $_.role; "content" = $_.content; }
         }
 
         # construct body
@@ -65,7 +66,7 @@ class OpenAiChat {
         return $this.InvokeRequestObject($body, $useStream)
     }
 
-    # requestObject is a object/hashtable with the full request body
+    # call the api, requestObject is a object/hashtable with the full request body
     [object] InvokeRequestObject([object]$requestObject, [bool]$useStream) {
         # $useStream = $true
         $url = "https://api.openai.com/v1/chat/completions"
@@ -81,7 +82,9 @@ class OpenAiChat {
 
         $response = $null
         try {
-            Write-Debug "Request:`n$body"
+            if($this._debug) {
+                Write-Debug "Request:`n$body"
+            }
             # [OutHelper]::Gpt("Request:`n$body")
 
             if($useStream) {
@@ -95,13 +98,15 @@ class OpenAiChat {
             # [OutHelper]::Gpt("`n`nResponse:`n$($response | ConvertTo-Json -Depth 10)")
             return $response
         } catch {
-            [OutHelper]::NonCriticalError("$($_.Exception)")
+            # [OutHelper]::NonCriticalError("$($_.Exception)")
+            [OutHelper]::NonCriticalError("$($_)")
             [OutHelper]::NonCriticalError("Request:`n$body")
             [OutHelper]::NonCriticalError("Response:`n$($response | ConvertTo-Json -Depth 10)")
             return $null
         }
     }
 
+    # calls the api and streams the response as it comes in
     [object] InvokeRequestObjectStream($url, $headers, $body) {
         Write-Debug "Streaming response"
 
@@ -142,6 +147,9 @@ class OpenAiChat {
                     break
                 }
                 # [OutHelper]::Gpt($line)
+                if($this._debug) {
+                    Write-Host "($line)" -ForegroundColor DarkGray -NoNewLine
+                }
 
                 $chunk = $line | ConvertFrom-Json
                 if(!$chunk.choices -or $chunk.choices.Count -ne 1) {
@@ -156,6 +164,7 @@ class OpenAiChat {
                     $choices[$index] = @{}
                 }
 
+                # merge the delta into the choices array
                 $initalValue = $false
                 foreach($nameValue in $delta.PSObject.Properties) {
                     $key = $nameValue.Name
@@ -173,7 +182,7 @@ class OpenAiChat {
                         if($initalValue) {
                             $value = $value.TrimStart()
                         }
-                        $value = [HttpUtility]::UrlDecode($value)
+                        # $value = [HttpUtility]::UrlDecode($value)
                         [OutHelper]::GptDelta($value, $false)
                     }
                 }
@@ -183,13 +192,11 @@ class OpenAiChat {
         }
         [OutHelper]::GptDelta("`n", $false)
 
-        # [OutHelper]::Gpt(($choices | ConvertTo-Json -Depth 10))
-
+        # convert the choices hashtable to an array of answers (strings)
         $answers = @()
         foreach($choice in $choices.Values) {
             $answers += [HttpUtility]::UrlDecode($choice.content.Trim())
         }
-        # [OutHelper]::Gpt(($answers | ConvertTo-Json -AsArray -Depth 10))
 
         return $answers
     }

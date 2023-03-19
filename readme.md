@@ -62,9 +62,9 @@ Commands are extensions for the UI chat. These are available when the user enter
 ## Dev notes
 For development this approach seems to work best:
 ```Powershell
-# open chat ui
-pwsh -NoProfile -Command { Remove-Module PsChat; Import-Module ./src/PsChat/PsChat.psd1 -Verbose -Force && Invoke-PsChat }
+# open chat ui (talkative, with debug)
+pwsh -NoProfile -Command { Remove-Module PsChat -Force; $DebugPreference="Continue"; Import-Module ./src/PsChat/PsChat.psd1 -Verbose -Force && Invoke-PsChat }
 
-# get anwer
-pwsh -NoProfile -Command { Remove-Module PsChat; Import-Module ./src/PsChat/PsChat.psd1 -Verbose -Force && Get-PsChatAnswer "hello" }
+# get anwer (quiet)
+pwsh -NoProfile -Command { Remove-Module PsChat -ErrorAction SilentlyContinue; Import-Module ./src/PsChat/PsChat.psd1 -Force && Get-PsChatAnswer "hello" }
 ```

@@ -39,7 +39,7 @@ class Dialog {
     }
 
     [string] GetMessageFormatted([object]$message) {
-        $from = "SYSTEM"
+        $from = "SYS"
         switch($message.role) {
             "assistant" { $from = "GPT"; }
             "user" { $from = "YOU"; }

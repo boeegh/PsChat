@@ -46,7 +46,7 @@ class ExtensionContainer {
                 $optName = $optName.Substring(1)
 
                 if($optName.IndexOf("_") -eq -1 -or $optName.Split("_")[0] -ne $type.Name) {
-                    Write-Debug "ExtensionContainer: Skipping $($optName)"
+                    # Write-Debug "ExtensionContainer: Skipping $($optName)"
                     continue
                 }
 

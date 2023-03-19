@@ -134,7 +134,13 @@ class ConsoleInput {
         $currentLeft = $state.InitialCursorLeft + $state.CursorPos
         $topDelta = [Math]::Floor($currentLeft / $state.WindowWidth())
         $leftDelta = $currentLeft % $state.WindowWidth()
-        [Console]::CursorTop = $state.InitialCursorTop + $topDelta
+        $top = $state.InitialCursorTop + $topDelta
+        if($top -ge $state.WindowHeight()) {
+            [Console]::Write("`n")
+            $state.InitialCursorTop -= 1
+            $top = $state.WindowHeight() -1 
+        }
+        [Console]::CursorTop = $top
         [Console]::CursorLeft = $leftDelta
     }
 
@@ -258,3 +264,7 @@ class ConsoleInput {
         return $state.Text
     }
 }
+
+# $input = [ConsoleInput]::new()
+# $input.Debug = $true
+# $input.ReadLine("Enter text: ")
