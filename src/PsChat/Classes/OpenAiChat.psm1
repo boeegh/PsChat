@@ -78,12 +78,12 @@ class OpenAiChat {
             "Authorization" = "Bearer $($this.AuthToken)"
         }
 
-        $body = $requestBody | ConvertTo-Json -Depth 10
+        $requestBodyJson = $requestBody | ConvertTo-Json -Depth 10
 
         $response = $null
         try {
             if($this._debug) {
-                Write-Debug "Request:`n$body"
+                Write-Debug "Request:`n$requestBodyJson"
             }
 
             if(!$this.httpClient) {
@@ -98,7 +98,7 @@ class OpenAiChat {
             if($useStream) {
                 $request.Headers.Range = [RangeHeaderValue]::new(0, 1024)
             }
-            $request.Content = [StringContent]::new($body, [Encoding]::UTF8, $this.httpContentType)
+            $request.Content = [StringContent]::new($requestBodyJson, [Encoding]::UTF8, $this.httpContentType)
 
             # send the HTTP request and get the response
             $response = $this.httpClient.SendAsync($request, [HttpCompletionOption]::ResponseHeadersRead).Result
@@ -113,11 +113,19 @@ class OpenAiChat {
                 return $success.Invoke($response)
             }
         } catch {
-            # [OutHelper]::NonCriticalError("$($_.Exception)")
             $failureBody = $response.Content.ReadAsStringAsync().Result
-            [OutHelper]::NonCriticalError("$($_)")
-            [OutHelper]::NonCriticalError("Request:`n$body")
-            [OutHelper]::NonCriticalError("Response:`n$($failureBody | ConvertTo-Json -Depth 10)")
+            if($this._debug) {
+                [OutHelper]::NonCriticalError("$($_)")
+                [OutHelper]::NonCriticalError("Request:`n$requestBodyJson")
+                [OutHelper]::NonCriticalError("Response:`n$failureBody")
+            }
+
+            if($failureBody.StartsWith("{")) {
+                $failure = $failureBody | ConvertFrom-Json
+                [OutHelper]::NonCriticalError("$($failure.error.message)")
+            } else {
+                [OutHelper]::NonCriticalError("$($failureBody)")
+            }
         }
 
         return $null
@@ -221,17 +229,17 @@ class OpenAiChat {
     }
 
     [object] GetAnswer([object]$messages, $useStream) {
-        $response = if($useStream) {
+        $choices = if($useStream) {
             $this.ChatCompletion($messages, $true, $this.ReadAndStreamResponse)
         } else {
             $this.ChatCompletion($messages, $false, $this.ReadChoices)
         }
 
-        if($null -ne $response) {
-            if($response.Length -gt 1) {
-                return $response
+        if($null -ne $choices) {
+            if($choices.Length -gt 1) {
+                return $choices
             } else {
-                return $response[0]
+                return $choices[0]
             }
         }
         return $null

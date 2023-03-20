@@ -172,6 +172,7 @@ function Invoke-PsChat {
         [Parameter(Position=1)][Switch]$Single,
         # API parameters
         [string]$OpenAiAuthToken,
+        [string]$Model,
         [decimal]$Temperature,
         [decimal]$Top_P,
         [bool]$Stream = $true,
@@ -191,6 +192,7 @@ function Invoke-PsChat {
 
     if($Temperature) { $chat.ChatApi.Temperature = $Temperature }
     if($Top_P) { $chat.ChatApi.Top_p = $Top_P }
+    if($Model) { $chat.ChatApi.Model = $Model }
 
     $chat.Start()
     return
