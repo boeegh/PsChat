@@ -62,6 +62,7 @@ function Get-PsChatAnswer {
         [Switch]$NoEnumerate,
         [int]$NumberOfAnswers = 1,
         [string]$OpenAiAuthToken,
+        [string]$Model,
         [decimal]$Temperature,
         [decimal]$Top_P
     )
@@ -73,6 +74,7 @@ function Get-PsChatAnswer {
         if($Temperature) { $chatApi.Temperature = $Temperature }
         if($Top_P) { $chatApi.Top_p = $Top_P }
         if($NumberOfAnswers -ne 1) { $chatApi.N = $NumberOfAnswers }
+        if($Model) { $chatApi.Model = $Model }
     }
 
     Process {

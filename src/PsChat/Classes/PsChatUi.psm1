@@ -65,9 +65,9 @@ class PsChatUi {
         $dlg.AddMessage("user", $dlg.Question)
         $answer = $null
         if($this.Stream) {
-            $answer = $this.ChatApi.GetStreamedAnswer($dlg.Messages)
+            $answer = $this.ChatApi.GetAnswer($dlg.Messages, $true)
         } else {
-            $answer = $this.ChatApi.GetAnswer($dlg.Messages)
+            $answer = $this.ChatApi.GetAnswer($dlg.Messages, $false)
             [OutHelper]::Gpt($answer)
         }
 

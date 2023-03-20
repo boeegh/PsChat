@@ -35,6 +35,7 @@ class OpenAiChat {
     [HttpClient]$httpClient
     [string]$httpContentType = "application/json"
     [bool]$_debug = $false
+    [string]$Baseurl = "https://api.openai.com/v1/"
 
     OpenAiChat([string]$authToken) {
         $this.AuthToken = $authToken
@@ -45,10 +46,9 @@ class OpenAiChat {
 
     # messages is an array of objects with 'role' and 'content' properties
     # 'content' is url encoded before sending to the API
-    [object] Invoke([object]$messages, [bool]$useStream) {
+    [object] ChatCompletion([object]$messages, [bool]$useStream, [Func[HttpResponseMessage, object]]$success) {
         $encoded = @()
         $messages | ForEach-Object {
-#            $encoded += @{ "role" = $_.role; "content" = [HttpUtility]::UrlEncode($_.content); }
             $encoded += @{ "role" = $_.role; "content" = $_.content; }
         }
 
@@ -62,71 +62,69 @@ class OpenAiChat {
         if($this.Temperature) { $body.temperature = $this.Temperature }
         if($this.Top_p) { $body.top_p = $this.Top_p }
         if($this.N) { $body.n = $this.N }
+        if($useStream) {
+            $body.stream=$true
+        }
 
-        return $this.InvokeRequestObject($body, $useStream)
+        return $this.InvokeRequestObject("chat/completions", $body, $useStream, $success)
     }
 
     # call the api, requestObject is a object/hashtable with the full request body
-    [object] InvokeRequestObject([object]$requestObject, [bool]$useStream) {
+    [object] InvokeRequestObject($url, [object]$requestBody, [bool]$useStream, [Func[HttpResponseMessage, object]]$success) {
         # $useStream = $true
-        $url = "https://api.openai.com/v1/chat/completions"
+        $url = "$($this.Baseurl)$url"
 
         $headers = @{
             "Authorization" = "Bearer $($this.AuthToken)"
         }
 
-        if($useStream) {
-            $requestObject.stream=$true
-        }
-        $body = $requestObject | ConvertTo-Json -Depth 10
+        $body = $requestBody | ConvertTo-Json -Depth 10
 
         $response = $null
         try {
             if($this._debug) {
                 Write-Debug "Request:`n$body"
             }
-            # [OutHelper]::Gpt("Request:`n$body")
 
-            if($useStream) {
-                return $this.InvokeRequestObjectStream($url, $headers, $body)
-            } else {
-                $headers["Content-Type"] = $this.httpContentType
-                $response = Invoke-RestMethod -Method 'POST' -Uri $url -Headers $headers -Body $body
+            if(!$this.httpClient) {
+                $this.httpClient = [HttpClient]::new()
             }
 
-            Write-Debug "`n`nResponse:`n$($response | ConvertTo-Json -Depth 10)"
-            # [OutHelper]::Gpt("`n`nResponse:`n$($response | ConvertTo-Json -Depth 10)")
-            return $response
+            # create an HTTP request with a range header to receive only a specific chunk of data
+            $request = [HttpRequestMessage]::new([HttpMethod]::Post, [Uri]::new($url))
+            foreach($key in $headers.Keys) {
+                $request.Headers.Add($key, $headers[$key])
+            }
+            if($useStream) {
+                $request.Headers.Range = [RangeHeaderValue]::new(0, 1024)
+            }
+            $request.Content = [StringContent]::new($body, [Encoding]::UTF8, $this.httpContentType)
+
+            # send the HTTP request and get the response
+            $response = $this.httpClient.SendAsync($request, [HttpCompletionOption]::ResponseHeadersRead).Result
+            if(!$response.IsSuccessStatusCode) {
+                throw "An error occurred: $($response.StatusCode)"
+            }
+
+            if($success) {
+                if($this._debug) {
+                    Write-Debug "Response:`n$($response | ConvertTo-Json -Depth 10)"
+                }
+                return $success.Invoke($response)
+            }
         } catch {
             # [OutHelper]::NonCriticalError("$($_.Exception)")
+            $failureBody = $response.Content.ReadAsStringAsync().Result
             [OutHelper]::NonCriticalError("$($_)")
             [OutHelper]::NonCriticalError("Request:`n$body")
-            [OutHelper]::NonCriticalError("Response:`n$($response | ConvertTo-Json -Depth 10)")
-            return $null
+            [OutHelper]::NonCriticalError("Response:`n$($failureBody | ConvertTo-Json -Depth 10)")
         }
+
+        return $null
     }
 
     # calls the api and streams the response as it comes in
-    [object] InvokeRequestObjectStream($url, $headers, $body) {
-        Write-Debug "Streaming response"
-
-        if(!$this.httpClient) {
-            $this.httpClient = [HttpClient]::new()
-        }
-
-        # create an HTTP request with a range header to receive only a specific chunk of data
-        $request = [HttpRequestMessage]::new([HttpMethod]::Post, [Uri]::new($url))
-        foreach($key in $headers.Keys) {
-            $request.Headers.Add($key, $headers[$key])
-        }
-        $request.Headers.Range = [RangeHeaderValue]::new(0, 1024)
-        $request.Content = [StringContent]::new($body, [Encoding]::UTF8, $this.httpContentType)
-
-        # send the HTTP request and get the response
-        $response = $this.httpClient.SendAsync($request, [HttpCompletionOption]::ResponseHeadersRead).Result
-        if(!$response.IsSuccessStatusCode) {
-            throw "An error occurred: $($response.StatusCode)"
-        }
+    [object] ReadAndStreamResponse($response) {
 
         $choices = @{}
         [OutHelper]::GptDelta("", $true) # writes GPT:
@@ -202,34 +200,40 @@ class OpenAiChat {
     }
 
     [string] Ask([string]$message) {
-        return $this.GetAnswer(@([OpenAiChatMessage]::ToAssistant($message)))
+        return $this.GetAnswer(@([OpenAiChatMessage]::ToAssistant($message)), $false)
     }
 
-    [object] GetStreamedAnswer([object]$messages) {
-        $response = $this.Invoke($messages, $true)
+    [object] ReadResponseAsObject([HttpResponseMessage]$response) {
+        return $response.Content.ReadAsStringAsync().Result | ConvertFrom-Json -AsHashtable
+    }
+
+    [object] ReadChoices([HttpResponseMessage]$response) {
+        $res = $this.ReadResponseAsObject($response)
+        if($null -eq $res) {
+            return $null
+        }
+
+        return $res.choices | ForEach-Object { $_.message.content.Trim() }
+    }
+
+    [object] GetAnswer([object]$messages) {
+        return $this.GetAnswer($messages, $false)
+    }
+
+    [object] GetAnswer([object]$messages, $useStream) {
+        $response = if($useStream) {
+            $this.ChatCompletion($messages, $true, $this.ReadAndStreamResponse)
+        } else {
+            $this.ChatCompletion($messages, $false, $this.ReadChoices)
+        }
+
         if($null -ne $response) {
             if($response.Length -gt 1) {
                 return $response
             } else {
                 return $response[0]
             }
-        } else {
-            return $null
         }
-    }
-
-    [object] GetAnswer([object]$messages) {
-        $response = $this.Invoke($messages, $false)
-        if($null -ne $response) {
-            # if multiple choices are requested, return an array of strings
-            if($this.N -gt 1) {
-                Write-Debug "N=$($this.N), returning array of $($response.choices.length) strings"
-                return $response.choices | ForEach-Object { [HttpUtility]::UrlDecode($_.message.content.Trim()) }
-            }
-
-            return [HttpUtility]::UrlDecode($response.choices.message.content.Trim())
-        } else {
-            return $null
-        }
+        return $null
     }
 }
