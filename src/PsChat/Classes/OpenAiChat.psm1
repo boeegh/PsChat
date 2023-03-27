@@ -26,6 +26,13 @@ class OpenAiChatMessage {
     }
 }
 
+class OpenAiResponseReader {
+}
+
+class OpenAiStreamingResponseReader {
+    # delegate to call on each delta
+}
+
 class OpenAiChat {
     [string]$AuthToken
     [string]$Model = "gpt-3.5-turbo"
@@ -113,7 +120,12 @@ class OpenAiChat {
                 return $success.Invoke($response)
             }
         } catch {
-            $failureBody = $response.Content.ReadAsStringAsync().Result
+            $failureBody = ""
+            # try to get the response body
+            try {
+                $failureBody = $response.Content.ReadAsStringAsync().Result
+            } catch {
+            }
             if($this._debug) {
                 [OutHelper]::NonCriticalError("$($_)")
                 [OutHelper]::NonCriticalError("Request:`n$requestBodyJson")

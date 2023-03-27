@@ -23,6 +23,13 @@ class Dialog {
         }
     }
 
+    InsertMessage($role,$content) {
+        $this.Messages = @( @{
+            "role" = $role;
+            "content" = $content;
+        } ) + $this.Messages
+    }
+
     PromptUser() {
         $this.Question = $this.ConsoleInput.ReadLine("YOU: ")
         if($this.Question) {

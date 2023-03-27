@@ -40,6 +40,11 @@ class ExtensionContainer {
             $opt = $this.Options.AdditionalArguments
             for($i = 0; $i -lt $opt.Length; $i+=2) {
                 $optName = $opt[$i] # -ExtenionName_PropertyName
+                if(!($optName -is [string])) {
+                    [OutHelper]::NonCriticalError("ExtensionContainer: Parameter name must be a String: $($optName)")
+                    continue
+                }
+
                 if(!$optName.StartsWith("-")) {
                     continue
                 }
