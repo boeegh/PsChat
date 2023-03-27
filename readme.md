@@ -49,7 +49,11 @@ Get-Help Get-PsChatAnswer
 ```
 
 ## Screenshot(s)
+Started using alias 'q':
 ![Screenshot of the chat UI.](/assets/Screenshot-Invoke-PsChat.png)
+
+Asking for help (available commands) in the chat:
+![Screenshot of the chat having pressed H.](/assets/Screenshot-In-Chat-Help.png)
 
 ## Extensions
 Extension-framework is wip, but a few built-in extensions are available:
@@ -57,6 +61,7 @@ Extension-framework is wip, but a few built-in extensions are available:
 * `WordCountWarning` - Informs the user when a certain word-count is reached (for cost-saving purposes)
 * `PreLoad` - Preloads messages from a file or string. Optionally "lock" the loaded messages
 * `Commands` - In-chat commands, such as clipboard access and API settings
+* `ShortTerm` - ShortTerm(Memory) starts pruning early messages when a certain word threshold is reached - in order to avoid token limit
 
 ## Commands
 Commands are extensions for the UI chat. These are available when the user enters `'h'` in the chat.
