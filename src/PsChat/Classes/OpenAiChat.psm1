@@ -52,7 +52,6 @@ class OpenAiChat {
     }
 
     # messages is an array of objects with 'role' and 'content' properties
-    # 'content' is url encoded before sending to the API
     [object] ChatCompletion([object]$messages, [bool]$useStream, [Func[HttpResponseMessage, object]]$success) {
         $encoded = @()
         $messages | ForEach-Object {
@@ -200,7 +199,6 @@ class OpenAiChat {
                         if($initalValue) {
                             $value = $value.TrimStart()
                         }
-                        # $value = [HttpUtility]::UrlDecode($value)
                         [OutHelper]::GptDelta($value, $false)
                     }
                 }
@@ -213,7 +211,7 @@ class OpenAiChat {
         # convert the choices hashtable to an array of answers (strings)
         $answers = @()
         foreach($choice in $choices.Values) {
-            $answers += [HttpUtility]::UrlDecode($choice.content.Trim())
+            $answers += $choice.content.Trim()
         }
 
         return $answers
