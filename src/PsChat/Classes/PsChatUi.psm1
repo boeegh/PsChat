@@ -1,7 +1,7 @@
 using module "..\Private\OutHelper.psm1"
+using module ".\Dialog.psm1"
 using module ".\Options.psm1"
 using module ".\OpenAiChat.psm1"
-using module ".\Dialog.psm1"
 using module ".\Extensions\ExtensionContainer.psm1"
 using module ".\Extensions\WordCountWarning.psm1"
 using module ".\Extensions\AutoSave.psm1"

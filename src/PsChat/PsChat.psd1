@@ -22,6 +22,8 @@
     # Minimum version of the common language runtime (CLR) required by this module. This prerequisite is valid for the PowerShell Desktop edition only.
     # ClrVersion = ''
 
+    RequiredAssemblies = @( 'System.Net.Http.dll' )
+
     FunctionsToExport = 'Get-PsChatAnswer', 'Invoke-PsChat', 'New-OpenAiChat'
 
     PrivateData = @{

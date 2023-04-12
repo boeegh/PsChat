@@ -111,12 +111,14 @@ class OpenAiChat {
             if(!$response.IsSuccessStatusCode) {
                 throw "An error occurred: $($response.StatusCode)"
             }
-
+            
             if($success) {
                 if($this._debug) {
                     Write-Debug "Response:`n$($response | ConvertTo-Json -Depth 10)"
                 }
                 return $success.Invoke($response)
+            } else {
+                Write-Debug "Success handler not provided (is null)"
             }
         } catch {
             $failureBody = ""
@@ -222,7 +224,11 @@ class OpenAiChat {
     }
 
     [object] ReadResponseAsObject([HttpResponseMessage]$response) {
-        return $response.Content.ReadAsStringAsync().Result | ConvertFrom-Json -AsHashtable
+        if($this.PsClassic()) {
+            return [HashTable]($response.Content.ReadAsStringAsync().Result | ConvertFrom-Json)
+        } else {
+            return $response.Content.ReadAsStringAsync().Result | ConvertFrom-Json -AsHashtable
+        }
     }
 
     [object] ReadChoices([HttpResponseMessage]$response) {
@@ -240,9 +246,20 @@ class OpenAiChat {
 
     [object] GetAnswer([object]$messages, $useStream) {
         $choices = if($useStream) {
-            $this.ChatCompletion($messages, $true, $this.ReadAndStreamResponse)
+            # this is purposely kept clumsy to support PS 5.1 (which may be removed in the future)
+            $cb = if($this.PsClassic()) {
+                [System.Func[HttpResponseMessage, object]]{param($response) return $this.ReadAndStreamResponse($response) }
+            } else {
+                $this.ReadAndStreamResponse
+            }
+            $this.ChatCompletion($messages, $true, $cb)
         } else {
-            $this.ChatCompletion($messages, $false, $this.ReadChoices)
+            $cb = if($this.PsClassic()) {
+                [System.Func[HttpResponseMessage, object]]{param($response) return $this.ReadChoices($response) }
+            } else {
+                $this.ReadChoices
+            }
+            $this.ChatCompletion($messages, $false, $cb)
         }
 
         if($null -ne $choices) {
@@ -253,5 +270,9 @@ class OpenAiChat {
             }
         }
         return $null
+    }
+
+    [bool] PsClassic() {
+        return (Get-Host).Version.Major -lt 6
     }
 }

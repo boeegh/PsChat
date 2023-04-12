@@ -1,4 +1,4 @@
-using module "./ConsoleInput.psm1"
+using module ".\ConsoleInput.psm1"
 using module "..\Private\OutHelper.psm1"
 
 class Dialog {
