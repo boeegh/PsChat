@@ -13,7 +13,7 @@ class CompressionCommand : BaseCommand {
         $prompt = "Describe the context and topics of our dialog starting with the phrase: The context of our dialog is. Please use bullets for the topics."
 
         $dialog.AddMessage("user", $prompt)
-        $answer = $this.ChatApi.GetAnswer($dialog.Messages)
+        $answer = $this.ChatApi.GetAnswer($dialog.Messages).Content
         if($null -ne $answer) {
             [OutHelper]::Gpt($answer)
             $dialog.ClearMessages()

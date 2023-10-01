@@ -1,5 +1,12 @@
 using module ".\ConsoleInput.psm1"
 using module "..\Private\OutHelper.psm1"
+using module ".\OpenAiChat.psm1"
+
+class DialogMessage : OpenAiChatMessage {
+    DialogMessage([string]$role, [string]$content) {
+        parent::new($role, $content)
+    }
+}
 
 class Dialog {
     [string]$Question
@@ -14,6 +21,21 @@ class Dialog {
         $this.ConsoleInput = [ConsoleInput]::new()
         $this.ConsoleInputHistory = [ConsoleInputHistory]::new()
         $this.ConsoleInput.Extensions = @( $this.ConsoleInputHistory )
+    }
+
+    AddOpenAiMessage([OpenAiChatMessage]$message) {
+        $this.Messages += @{
+            "role" = $message.Role;
+            "content" = $message.Content;
+        }
+    }
+
+    [OpenAiChatMessage[]] AsOpenAiChatMessages() {
+        $openAiMessages = @()
+        foreach($m in $this.Messages) {
+            $openAiMessages += [OpenAiChatMessage]::new($m.role, $m.content)
+        }
+        return $openAiMessages
     }
 
     AddMessage($role,$content) {
@@ -66,8 +88,18 @@ class Dialog {
         return $messages | ForEach-Object { $_.content.split(" ").count } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
     }
 
+    static [int] ApproximateTokens($messages) {
+        $factor = 0.36787944117144
+        $charSum = $messages | ForEach-Object { $_.content.length } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+        $tokens = $charSum * $factor
+        return [Math]::Round($tokens)
+   }
+
+    [int] GetTokenCount() {
+        return [Dialog]::ApproximateTokens($this.Messages)
+    }
+
     [int] GetWordCount() {
         return [Dialog]::CalculateWords($this.Messages)
-        # return $this.Messages | ForEach-Object { $_.content.split(" ").count } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
     }
 }

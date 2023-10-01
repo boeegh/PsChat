@@ -71,6 +71,7 @@ function Get-PsChatAnswer {
         # Initialize any variables or resources needed for the function
         $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
         $chatApi = [OpenAiChat]::new($authToken)
+        $chatApi.Stream = $false
         if($Temperature) { $chatApi.Temperature = $Temperature }
         if($Top_P) { $chatApi.Top_p = $Top_P }
         if($NumberOfAnswers -ne 1) { $chatApi.N = $NumberOfAnswers }
@@ -80,7 +81,7 @@ function Get-PsChatAnswer {
     Process {
         # handle array of hashtable/object, eg. @( @{ "role"="user"; "content"="hello" } )
         if($NoEnumerate -and $InputObject -is [array]) {
-            Write-Output -InputObject $chatApi.GetAnswer($InputObject)
+            Write-Output -InputObject $chatApi.GetAnswer($InputObject).Content
         } else {
             # iterate over each item in the pipeline
             foreach ($item in $InputObject) {
@@ -90,14 +91,14 @@ function Get-PsChatAnswer {
 
                 # handle string, eg. "hello"
                 if($item -is [string]) {
-                    $messages += [OpenAiChatMessage]::ToAssistant($item)
-                    $answer = $chatApi.GetAnswer($messages)
+                    $messages += [OpenAiChatMessage]::FromUser($item)
+                    $answer = $chatApi.GetAnswer($messages).Content
                 }
 
                 # handle hashtable/object, eg. @{ "role"="user"; "content"="hello" }
                 if($item -is [Hashtable]) {
-                    $messages += $item
-                    $answer = $chatApi.GetAnswer($messages)
+                    $messages += [OpenAiChatMessage]::Parse($item)
+                    $answer = $chatApi.GetAnswer($messages).Content
                 }
 
                 if($null -ne $answer) {

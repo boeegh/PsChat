@@ -8,6 +8,7 @@ using module ".\Extensions\AutoSave.psm1"
 using module ".\Extensions\PreLoad.psm1"
 using module ".\Extensions\Commands.psm1"
 using module ".\Extensions\ShortTerm.psm1"
+using module ".\Extensions\Functions.psm1"
 
 class PsChatUi {
     [string]$OpenAiAuthKey
@@ -22,14 +23,16 @@ class PsChatUi {
         $this.Options = $options
 
         $this.ChatApi = [OpenAiChat]::new($this.OpenAiAuthKey)
+        $this.ChatApi.Stream = $this.Stream
         $this.Dialog = [Dialog]::new()
         $this.ExtensionContainer = [ExtensionContainer]::new($this.ChatApi, $this.Options, @(
-            [WordCountWarning]::new()
-            [AutoSave]::new()
-            [PreLoad]::new()
-            [Commands]::new()
-            [ShortTerm]::new()
-        ))
+                [WordCountWarning]::new()
+                [AutoSave]::new()
+                [PreLoad]::new()
+                [Commands]::new()
+                [ShortTerm]::new()
+                [Functions]::new()
+            ))
     }
 
     Start() {
@@ -41,11 +44,11 @@ class PsChatUi {
 
         do {
             # call api with all previous messages
-            if(![string]::IsNullOrEmpty($dlg.Question)) {
+            if (![string]::IsNullOrEmpty($dlg.Question)) {
                 $dlg = $this.ExtensionContainer.Invoke("BeforeAnswer", $dlg)
                 $dlg = $this.Invoke($dlg)
                 $dlg = $this.ExtensionContainer.Invoke("AfterAnswer", $dlg)
-                if($this.Options.SingleQuestion) { break }
+                if ($this.Options.SingleQuestion) { break }
             }
 
             # execute extension logic before a question
@@ -56,23 +59,21 @@ class PsChatUi {
             # execute extension logic after a question
             $dlg = $this.ExtensionContainer.Invoke("AfterQuestion", $dlg)
 
-        } while($dlg.Question -ne "q" )
+        } while ($dlg.Question -ne "q" )
 
         $this.ExtensionContainer.Invoke("AfterChatLoop", $dlg) | Out-Null
     }
 
     [Dialog] Invoke([Dialog]$dlg) {
         $dlg.AddMessage("user", $dlg.Question)
-        $answer = $null
-        if($this.Stream) {
-            $answer = $this.ChatApi.GetAnswer($dlg.Messages, $true)
-        } else {
-            $answer = $this.ChatApi.GetAnswer($dlg.Messages, $false)
-            [OutHelper]::Gpt($answer)
-        }
+        $message = $this.ChatApi.GetAnswer($dlg.AsOpenAiChatMessages())
+        $message = $this.ExtensionContainer.Invoke("PostOpenAiChatResponse", @{ "message" = $message; "dialog" = $dlg }) # hmf
 
-        if($null -ne $answer) {
-            $dlg.AddMessage("assistant", $answer)
+        if ($null -ne $message.Content) {
+            if ($this.Stream -eq $false) {
+                [OutHelper]::Gpt($message.Content)
+            }
+            $dlg.AddOpenAiMessage($message)
         }
 
         return $dlg

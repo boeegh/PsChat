@@ -9,7 +9,7 @@ class ShortTerm {
     [bool]$Enabled = $true
     [bool]$Verbose = $true
     [bool]$Compress = $true
-    [string]$CompressPrompt = "Can you provide a short summary of the previous messages? Start the summary with: Our dialog is about"
+    [string]$CompressPrompt = "Provide a short summary of the previous messages? Start with: Our dialog is about"
 
     [string] CompressMessages([hashtable[]]$messages) {
         if($this.Verbose) {
@@ -22,7 +22,7 @@ class ShortTerm {
             "content" = $prompt;
         }
 
-        $compressed = $this.ChatApi.GetAnswer($messages)
+        $compressed = $this.ChatApi.GetAnswer($messages).Content
         if($null -ne $compressed) {
             [OutHelper]::Info($compressed)
             return $compressed
@@ -33,6 +33,8 @@ class ShortTerm {
 
     [Dialog] AfterAnswer([Dialog]$dialog) {
         if(!$this.Enabled) { return $dialog }
+
+        [OutHelper]::Info("Token count: $($dialog.GetTokenCount())")
 
         $wordCount = $dialog.GetWordCount()
         if($wordCount -gt $this.WordCountThreshold) {
