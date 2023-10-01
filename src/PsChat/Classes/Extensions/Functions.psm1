@@ -119,7 +119,9 @@ class Functions {
         $this.ChatApi.Functions = $chatFunctions
         
         # Write-Debug "$($this.ChatApi.Functions | ConvertTo-Json -Depth 10)"
-        [OutHelper]::Info("Functions activated: $(($chatFunctions | ForEach-Object { $_.name }) -join ',').")
+        if($chatFunctions.Count -gt 0) {
+            [OutHelper]::Info("- Functions: $(($chatFunctions | ForEach-Object { $_.name }) -join ', ').")
+        }
         return $dialog
     }
 }

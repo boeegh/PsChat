@@ -6,7 +6,7 @@ using module "..\..\Private\OutHelper.psm1"
 class Api {
     [OpenAiChat]$ChatApi
     [bool]$Enabled = $true
-    [bool]$Verbose = $true
+    [bool]$Verbose = $false
     [string]$AuthToken
     [string]$Model
     [decimal]$Temperature
@@ -17,7 +17,7 @@ class Api {
         if(!$this.Enabled) { return $dialog }
 
         if($this.Verbose) {
-            [OutHelper]::Info("Setting API parameters: AuthToken: $($this.AuthToken), Model: $($this.Model), Temperature: $($this.Temperature), Top_P: $($this.Top_P), Baseurl: $($this.Baseurl)")
+            [OutHelper]::Info("- Setting API parameters: AuthToken: $($this.AuthToken), Model: $($this.Model), Temperature: $($this.Temperature), Top_P: $($this.Top_P), Baseurl: $($this.Baseurl)")
         }
 
         if($this.AuthToken) { $this.ChatApi.AuthToken = $this.AuthToken }

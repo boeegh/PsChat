@@ -8,7 +8,7 @@ class AutoSave {
     [bool]$Enabled = $false
 
     [string] GetName() {
-        return "pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").json"
+        return "./pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").json"
     }
 
     Save([Dialog]$dialog) {
@@ -32,7 +32,7 @@ class AutoSave {
     [Dialog] BeforeChatLoop([Dialog]$dialog) {
         if(!$this.Enabled) { return $dialog }
         $this.Path = if($this.Path) { $this.Path } else { $this.GetName() }
-        [OutHelper]::Info("AutoSaving to $($this.Path)")
+        [OutHelper]::Info("- AutoSave: Saving to $($this.Path)")
         return $dialog
     }
 }

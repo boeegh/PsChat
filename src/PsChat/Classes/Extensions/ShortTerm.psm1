@@ -8,7 +8,7 @@ class ShortTerm {
     [int]$WordCountThreshold = 0
     [int]$TokenCountThreshold = 0
     [bool]$Enabled = $true
-    [bool]$Verbose = $true
+    [bool]$Verbose = $false
     [bool]$Compress = $true
     [string]$CompressPrompt = "Provide a short summary of the previous messages? Start with: Our dialog is about"
 
@@ -112,7 +112,9 @@ class ShortTerm {
     [Dialog] BeforeChatLoop([Dialog]$dialog) {
         if($this.WordCountThreshold -eq 0 -and $this.TokenCountThreshold -eq 0) {
             $this.TokenCountThreshold = $this.EstimateModelTokenCount() - 1000
-            [OutHelper]::Info("ShortTerm no defined threshold set, will use $($this.TokenCountThreshold).")
+            if($this.Verbose) {
+                [OutHelper]::Info("- ShortTerm: No defined threshold set, will use $($this.TokenCountThreshold).")
+            }
         }
         return $dialog
     }
