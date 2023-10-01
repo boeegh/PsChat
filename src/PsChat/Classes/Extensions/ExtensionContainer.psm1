@@ -69,15 +69,16 @@ class ExtensionContainer {
         }
     }
 
-    [Dialog] Invoke([string]$eventName, [Dialog]$dialog) {
+    [object] Invoke([string]$eventName, [object]$inputObject) {
+        $outputObject = $inputObject
         $this.Extensions | ForEach-Object {
             $method = $_.GetType().GetMethod($eventName)
             if($method) {
                 Write-Debug "ExtensionContainer: Invoking $($method.Name) on $($_.GetType().Name)"
-                $arguments = @( $dialog)
-                $dialog = $method.Invoke($_, $arguments)
+                $arguments = @( $inputObject )
+                $outputObject = $method.Invoke($_, $arguments)
             }
         }
-        return $dialog
+        return $outputObject
     }
 }

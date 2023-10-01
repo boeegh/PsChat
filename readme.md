@@ -9,6 +9,9 @@ I made it to use and explore ChatGPT the place, I mostly find myself: In the she
 
 The module requires OpenAI API access. You can get an API key from: https://platform.openai.com/signup
 
+## News
+* 2023-10-01 - Support for function calling, end-to-end tests
+
 ## Getting started
 ```Powershell
 # install module from PSGallery
@@ -29,8 +32,13 @@ Invoke-PsChat "Lets talk Powershell"
 # ask single question
 Invoke-PsChat "How is Powershell compared to Zsh" -Single
 
+# ask single question using functions, result as PSObject
+Invoke-PsChat -Single -Question "Whats the uptime?" `
+     -Functions_Names @("Get-Uptime") `
+     -NonInteractive
+
 # does the same using Get-PsChatAnswer
-Get-PsChatAnswer "What is your name?"
+Get-PsChatAnswer "What is your name?
 
 # pipe in question
 "Hello OpenAI" | Get-PsChatAnswer
@@ -62,6 +70,8 @@ Extension-framework is wip, but a few built-in extensions are available:
 * `PreLoad` - Preloads messages from a file or string. Optionally "lock" the loaded messages
 * `Commands` - In-chat commands, such as clipboard access and API settings
 * `ShortTerm` - ShortTerm(Memory) starts pruning early messages when a certain word threshold is reached - in order to avoid token limit
+* `Functions` - NEW: Allows OpenAI chat to call Powershell functions during an answer/chat-completion
+* `Api` - NEW: Allows you to set chat-completion API parameters, such as base-url, model and temperature
 
 ## Commands
 Commands are extensions for the UI chat. These are available when the user enters `'h'` in the chat.

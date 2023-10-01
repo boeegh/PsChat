@@ -8,17 +8,60 @@ using namespace System.Net.Http.Headers
 using namespace System.Web
 using namespace System.Web.Extensions
 
+class OpenAiChatFunctionCall {
+    [string]$Name
+    [object]$Arguments
+
+    static [OpenAiChatFunctionCall] Parse([object]$rawFunctionCall) {
+        $fc = [OpenAiChatFunctionCall]::new()
+        $fc.Name = $rawFunctionCall.name
+        $fc.Arguments = $rawFunctionCall.arguments | ConvertFrom-Json -AsHashtable
+        return $fc
+    }
+}
+
 class OpenAiChatMessage {
     [string]$Role
     [string]$Content
+    [OpenAiChatFunctionCall]$FunctionCall = $null
+    
+    OpenAiChatMessage() {
+    }
 
     OpenAiChatMessage([string]$role, [string]$content) {
         $this.Role = $role
         $this.Content = $content
     }
 
-    static [OpenAiChatMessage] ToAssistant([string]$message) {
+    [object] AsRaw() {
+        $raw = @{
+            "role" = $this.Role
+            "content" = $this.Content
+        }
+        if($this.FunctionCall) {
+            $raw.name = $this.FunctionCall.Name
+        }
+        return $raw
+    }
+
+    static [OpenAiChatMessage] Parse([object]$rawMessage) {
+        $message = [OpenAiChatMessage]::new($rawMessage.role, $rawMessage.content)
+        if($rawMessage.function_call) {
+            $message.FunctionCall = [OpenAiChatFunctionCall]::Parse($rawMessage.function_call)
+        }
+        return $message
+    }
+
+    static [OpenAiChatMessage] FromUser([string]$message) {
         return [OpenAiChatMessage]::new("user", $message)
+    }
+
+    static [OpenAiChatMessage] FromFunction([string]$functionName, [object]$contentObject) {
+        $contentJson = $contentObject | ConvertTo-Json -Depth 10
+        $message = [OpenAiChatMessage]::new("function", $contentJson)
+        $message.FunctionCall = [OpenAiChatFunctionCall]::new()
+        $message.FunctionCall.Name = $functionName
+        return $message
     }
 
     static [OpenAiChatMessage] FromAssistant([string]$message) {
@@ -43,6 +86,8 @@ class OpenAiChat {
     [string]$httpContentType = "application/json"
     [bool]$_debug = $false
     [string]$Baseurl = "https://api.openai.com/v1/"
+    [bool]$Stream = $false
+    [object]$Functions
 
     OpenAiChat([string]$authToken) {
         $this.AuthToken = $authToken
@@ -51,32 +96,35 @@ class OpenAiChat {
         }
     }
 
-    # messages is an array of objects with 'role' and 'content' properties
-    [object] ChatCompletion([object]$messages, [bool]$useStream, [Func[HttpResponseMessage, object]]$success) {
-        $encoded = @()
+    [object] ChatCompletion([OpenAiChatMessage[]]$messages, [Func[HttpResponseMessage, object]]$success) {
+        # translate OpenAiChatMessages to raw json-ready messages
+        $rawMessages = @()
         $messages | ForEach-Object {
-            $encoded += @{ "role" = $_.role; "content" = $_.content; }
+            $rawMessages += $_.AsRaw()
         }
 
         # construct body
         $body = @{
             "model" = $this.Model
-            "messages" = $encoded
+            "messages" = $rawMessages
+        }
+        if($this.Functions) {
+            $body.functions = $this.Functions
         }
 
         # set optional parameters for the request
         if($this.Temperature) { $body.temperature = $this.Temperature }
         if($this.Top_p) { $body.top_p = $this.Top_p }
         if($this.N) { $body.n = $this.N }
-        if($useStream) {
+        if($this.Stream) {
             $body.stream=$true
         }
 
-        return $this.InvokeRequestObject("chat/completions", $body, $useStream, $success)
+        return $this.InvokeRequestObject("chat/completions", $body, $success)
     }
 
     # call the api, requestObject is a object/hashtable with the full request body
-    [object] InvokeRequestObject($url, [object]$requestBody, [bool]$useStream, [Func[HttpResponseMessage, object]]$success) {
+    [object] InvokeRequestObject($url, [object]$requestBody, [Func[HttpResponseMessage, object]]$success) {
         # $useStream = $true
         $url = "$($this.Baseurl)$url"
 
@@ -101,7 +149,7 @@ class OpenAiChat {
             foreach($key in $headers.Keys) {
                 $request.Headers.Add($key, $headers[$key])
             }
-            if($useStream) {
+            if($this.Stream) {
                 $request.Headers.Range = [RangeHeaderValue]::new(0, 1024)
             }
             $request.Content = [StringContent]::new($requestBodyJson, [Encoding]::UTF8, $this.httpContentType)
@@ -144,13 +192,35 @@ class OpenAiChat {
         return $null
     }
 
+    [object] ApplyDelta($obj, $objDelta) {
+        #Write-Debug "obj-before: $($obj | ConvertTo-Json -Depth 10)"
+        foreach($nameValue in $objDelta.PSObject.Properties) {
+            $key = $nameValue.Name
+            $value = $nameValue.Value
+            if($null -eq $value) {
+                $value = ""
+            }
+
+            if(!$obj.$key) {
+                $obj.$key = $value
+            } else {
+                if($value -is [PSObject]) {
+                    $obj.$key = $this.ApplyDelta($obj.$key, $value)                           
+                } else {
+                    $obj.$key += $value
+                }    
+            }
+        }
+        #Write-Debug "obj-after: $($obj | ConvertTo-Json -Depth 10)"
+        return $obj
+    }
+
     # calls the api and streams the response as it comes in
     [object] ReadAndStreamResponse($response) {
 
         $choices = @{}
-        [OutHelper]::GptDelta("", $true) # writes GPT:
-
         $streamReader = [StreamReader]::new($response.Content.ReadAsStreamAsync().Result)
+        $firstContent = $true
         try {
             # read the response content as a stream of JSON data
             $dataPrefix = "data: "
@@ -179,48 +249,39 @@ class OpenAiChat {
                 $delta = $chunk.choices[0].delta # {"content":" you"}
                 $index = "i$($chunk.choices[0].index)" # 0
 
-                if(!$choices[$index]) {
-                    $choices[$index] = @{}
+                $c = $choices[$index] 
+                if(!$c) {
+                    $c = $choices[$index] = @{}
                 }
 
-                # merge the delta into the choices array
-                $initalValue = $false
-                foreach($nameValue in $delta.PSObject.Properties) {
-                    $key = $nameValue.Name
-                    $value = $nameValue.Value
+                $contentPreDelta = $c.content
+                $c = $choices[$index] = $this.ApplyDelta($c, $delta)
 
-                    if(!$choices[$index].$key) {
-                        $choices[$index].$key = $value
-                        $initalValue = $true
-                    } else {
-                        $choices[$index].$key += $value
+                # output content-delta if any
+                $contentDelta = $c.content.Substring($contentPreDelta.Length)
+                if($contentDelta -ne "") {
+                    if($firstContent) {
+                        [OutHelper]::GptDelta("", $true) # writes GPT:
+                        $firstContent = $false
                     }
-
-                    # output new content (delta) to user
-                    if($index -eq "i0" -and $key -eq "content") {
-                        if($initalValue) {
-                            $value = $value.TrimStart()
-                        }
-                        [OutHelper]::GptDelta($value, $false)
-                    }
+                    [OutHelper]::GptDelta($contentDelta, $false)
                 }
             }
         } finally {
             $streamReader.Dispose()
         }
-        [OutHelper]::GptDelta("`n", $false)
 
-        # convert the choices hashtable to an array of answers (strings)
-        $answers = @()
-        foreach($choice in $choices.Values) {
-            $answers += $choice.content.Trim()
+        if(!$firstContent) {
+            [OutHelper]::GptDelta("`n", $false)
         }
 
-        return $answers
+        # Write-Debug "Choices: $($choices | ConvertTo-Json -Depth 10)"
+
+        return [OpenAiChatMessage]::Parse($choices.i0) # todo: support for multiple choices
     }
 
     [string] Ask([string]$message) {
-        return $this.GetAnswer(@([OpenAiChatMessage]::ToAssistant($message)), $false)
+        return $this.GetAnswer(@([OpenAiChatMessage]::ToAssistant($message))).Content
     }
 
     [object] ReadResponseAsObject([HttpResponseMessage]$response) {
@@ -231,45 +292,29 @@ class OpenAiChat {
         }
     }
 
-    [object] ReadChoices([HttpResponseMessage]$response) {
+    [OpenAiChatMessage] ReadChoices([HttpResponseMessage]$response) {
         $res = $this.ReadResponseAsObject($response)
         if($null -eq $res) {
             return $null
         }
 
-        return $res.choices | ForEach-Object { $_.message.content.Trim() }
+        return [OpenAiChatMessage]::Parse($res.choices[0].message)
     }
 
-    [object] GetAnswer([object]$messages) {
-        return $this.GetAnswer($messages, $false)
-    }
+    # [OpenAiChatMessage] GetAnswer([OpenAiChatMessage[]]$messages) {
+    #     return $this.GetAnswer($messages, $false)
+    # }
 
-    [object] GetAnswer([object]$messages, $useStream) {
-        $choices = if($useStream) {
+    [OpenAiChatMessage] GetAnswer([OpenAiChatMessage[]]$messages) {
+        $cb = if($this.Stream) {
             # this is purposely kept clumsy to support PS 5.1 (which may be removed in the future)
-            $cb = if($this.PsClassic()) {
-                [System.Func[HttpResponseMessage, object]]{param($response) return $this.ReadAndStreamResponse($response) }
-            } else {
-                $this.ReadAndStreamResponse
-            }
-            $this.ChatCompletion($messages, $true, $cb)
+            [System.Func[HttpResponseMessage, object]]{param($response) return $this.ReadAndStreamResponse($response) }
         } else {
-            $cb = if($this.PsClassic()) {
-                [System.Func[HttpResponseMessage, object]]{param($response) return $this.ReadChoices($response) }
-            } else {
-                $this.ReadChoices
-            }
-            $this.ChatCompletion($messages, $false, $cb)
+            [System.Func[HttpResponseMessage, object]]{param($response) return $this.ReadChoices($response) }
         }
+        $message = $this.ChatCompletion($messages, $cb)
 
-        if($null -ne $choices) {
-            if($choices.Length -gt 1) {
-                return $choices
-            } else {
-                return $choices[0]
-            }
-        }
-        return $null
+        return $message
     }
 
     [bool] PsClassic() {

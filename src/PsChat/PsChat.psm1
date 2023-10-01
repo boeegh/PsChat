@@ -71,6 +71,7 @@ function Get-PsChatAnswer {
         # Initialize any variables or resources needed for the function
         $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
         $chatApi = [OpenAiChat]::new($authToken)
+        $chatApi.Stream = $false
         if($Temperature) { $chatApi.Temperature = $Temperature }
         if($Top_P) { $chatApi.Top_p = $Top_P }
         if($NumberOfAnswers -ne 1) { $chatApi.N = $NumberOfAnswers }
@@ -80,7 +81,7 @@ function Get-PsChatAnswer {
     Process {
         # handle array of hashtable/object, eg. @( @{ "role"="user"; "content"="hello" } )
         if($NoEnumerate -and $InputObject -is [array]) {
-            Write-Output -InputObject $chatApi.GetAnswer($InputObject)
+            Write-Output -InputObject $chatApi.GetAnswer($InputObject).Content
         } else {
             # iterate over each item in the pipeline
             foreach ($item in $InputObject) {
@@ -90,14 +91,14 @@ function Get-PsChatAnswer {
 
                 # handle string, eg. "hello"
                 if($item -is [string]) {
-                    $messages += [OpenAiChatMessage]::ToAssistant($item)
-                    $answer = $chatApi.GetAnswer($messages)
+                    $messages += [OpenAiChatMessage]::FromUser($item)
+                    $answer = $chatApi.GetAnswer($messages).Content
                 }
 
                 # handle hashtable/object, eg. @{ "role"="user"; "content"="hello" }
                 if($item -is [Hashtable]) {
-                    $messages += $item
-                    $answer = $chatApi.GetAnswer($messages)
+                    $messages += [OpenAiChatMessage]::Parse($item)
+                    $answer = $chatApi.GetAnswer($messages).Content
                 }
 
                 if($null -ne $answer) {
@@ -154,10 +155,13 @@ function Invoke-PsChat {
     .PARAMETER OpenAiAuthToken
     The OpenAI API key. If not specified, the value of $ENV:OPENAI_AUTH_TOKEN is used.
 
-    .PARAMETER Temperature
+    .PARAMETER Api_Model
+    The model to use. Default is "gpt-3".
+    
+    .PARAMETER Api_Temperature
     The temperature of the model. Higher values means the model will take more risks. Default is 0.9.
 
-    .PARAMETER Top_P
+    .PARAMETER Api_Top_P
     The cumulative probability for top-p sampling. Default is 1.
 
     .EXAMPLE
@@ -170,12 +174,8 @@ function Invoke-PsChat {
         # Initial invocation parameters
         [Parameter(Position=0)][string]$Question,
         [Parameter(Position=1)][Switch]$Single,
-        # API parameters
+        [Parameter(Position=2)][Switch]$NonInteractive,
         [string]$OpenAiAuthToken,
-        [string]$Model,
-        [decimal]$Temperature,
-        [decimal]$Top_P,
-        [bool]$Stream = $true,
         [Parameter(ValueFromRemainingArguments=$true)]
         [object[]]$AdditionalArguments
         )
@@ -184,17 +184,20 @@ function Invoke-PsChat {
     $options.AdditionalArguments = $AdditionalArguments
     $options.InitialQuestion = $Question
     $options.SingleQuestion = $Single
+    $options.NonInteractive = $NonInteractive
+
+    # disable all output if non-interactive
+    if($NonInteractive) {
+        [OutHelper]::HostOutput = $false
+    }
 
     # initialize the api
     $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
     $chat = [PsChatUi]::new($authToken, $options)
-    $chat.Stream = $Stream
-
-    if($Temperature) { $chat.ChatApi.Temperature = $Temperature }
-    if($Top_P) { $chat.ChatApi.Top_p = $Top_P }
-    if($Model) { $chat.ChatApi.Model = $Model }
-
-    $chat.Start()
+    $dlg = $chat.Start()
+    if($NonInteractive) {
+        return $dlg.Messages | Select-Object -Property Role, Content
+    }
     return
 }
 
