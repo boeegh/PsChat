@@ -20,6 +20,15 @@ class DialogMessage : OpenAiChatMessage {
         return [DialogMessage]::new($message.Role, $message.Content)
     }
 
+    [string] GetMessageFormatted() {
+        $from = "SYS"
+        switch($this.Role) {
+            "assistant" { $from = "GPT"; }
+            "user" { $from = "YOU"; }
+        }
+        return "${from}: $($this.Content)"
+    }
+
     static [DialogMessage[]] ImportMessages([string]$json) {
         $messages = @()
         foreach($obj in ConvertFrom-Json -InputObject $json -NoEnumerate -AsHashtable) {
@@ -28,6 +37,15 @@ class DialogMessage : OpenAiChatMessage {
             $messages += $dm
         }
         return $messages
+    }
+
+    static [object[]] AsObjects([DialogMessage[]]$messages) {
+        return ($messages | Select-Object -Property Locked, Role, Content)
+    }
+
+    static [string] AsJson([DialogMessage[]]$messages) {        
+        $objs = [DialogMessage]::AsObjects($messages)
+        return (ConvertTo-Json $objs)
     }
 
     [int] WordCount() {
@@ -56,41 +74,18 @@ class Dialog {
     }
 
     AddOpenAiMessage([OpenAiChatMessage]$message) {
-        # $this.Messages += @{
-        #     "role" = $message.Role;
-        #     "content" = $message.Content;
-        # }
-        # $this.Messages += $message
-       #  $this.Messages += [DialogMessage]::new($message.Role, $message.Content)
         $this.Messages += [DialogMessage]::FromOpenAiChatMessage($message)
     }
 
     [OpenAiChatMessage[]] AsOpenAiChatMessages() {
-        # $openAiMessages = @()
-        # foreach($m in $this.Messages) {
-        #     $openAiMessages += [OpenAiChatMessage]::new($m.role, $m.content)
-        # }
-        # return $openAiMessages
         return $this.Messages
     }
-
-    # AddMessage($role,$content) {
-        # $this.Messages += @{
-        #     "role" = $role;
-        #     "content" = $content;
-        # }
-    #     $this.Messages += [DialogMessage]::new($role, $content)
-    # }
 
     AddMessage([DialogMessage]$message) {
         $this.Messages += $message
     }
 
     InsertMessage($role,$content) {
-        # $this.Messages = @( @{
-        #     "role" = $role;
-        #     "content" = $content;
-        # } ) + $this.Messages
         $this.Messages = @( [DialogMessage]::new($role, $content) ) + $this.Messages
     }
 
@@ -110,17 +105,12 @@ class Dialog {
     }
 
     [string] GetMessageFormatted([DialogMessage]$message) {
-        $from = "SYS"
-        switch($message.Role) {
-            "assistant" { $from = "GPT"; }
-            "user" { $from = "YOU"; }
-        }
-        return "${from}: $($message.Content)"
+        return $message.GetMessageFormatted()
     }
 
     [string] ExportMessages([bool]$asJson) {
         $export = if($asJson)
-            { $(ConvertTo-Json $this.Messages) }
+            { [DialogMessage]::AsJson($this.Messages) }
             else
             { $($this.Messages | ForEach-Object { $this.GetMessageFormatted($_) }) -join "`n" }
         return $export

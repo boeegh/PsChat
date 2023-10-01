@@ -21,8 +21,6 @@ class ShortTerm {
             return "tokens"
         }
         return "words"
-        # return (if($this.IsTokenBased()) { "tokens" } else { "words" })
-#        return "tokens"
     }
 
     [string] CompressMessages([DialogMessage[]]$messages) {
@@ -32,10 +30,6 @@ class ShortTerm {
 
         $prompt = $this.CompressPrompt
         $messages += [DialogMessage]::FromUser($prompt)
-        # $messages += @{
-        #     "role" = "user";
-        #     "content" = $prompt;
-        # }
 
         $streamState = $this.ChatApi.Stream
         $this.ChatApi.Stream = $false

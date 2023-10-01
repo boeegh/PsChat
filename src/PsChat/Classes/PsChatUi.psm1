@@ -17,7 +17,6 @@ class PsChatUi {
     [OpenAiChat]$ChatApi
     [Dialog]$Dialog
     [ExtensionContainer]$ExtensionContainer
-#     [bool]$Stream = $true
 
     PsChatUi([string]$openAiAuthKey, [Options]$options) {
         $this.OpenAiAuthKey = $openAiAuthKey
@@ -45,7 +44,7 @@ class PsChatUi {
 
         do {
             # call api with all previous messages
-            if (![string]::IsNullOrEmpty($dlg.Question)) {
+            if (![string]::IsNullOrEmpty($dlg.Question) -or $this.Options.SkipQuestion) {
                 $dlg = $this.ExtensionContainer.Invoke("BeforeAnswer", $dlg)
                 $dlg = $this.Invoke($dlg)
                 $dlg = $this.ExtensionContainer.Invoke("AfterAnswer", $dlg)
@@ -69,8 +68,10 @@ class PsChatUi {
     }
 
     [Dialog] Invoke([Dialog]$dlg) {
-        $qm = [DialogMessage]::FromUser($dlg.Question)
-        $dlg.AddMessage($qm)
+        if($this.Options.SkipQuestion -eq $false) {
+            $dlg.AddMessage([DialogMessage]::FromUser($dlg.Question))    
+        }
+
         $message = $this.ChatApi.GetAnswer($dlg.AsOpenAiChatMessages())
         $message = $this.ExtensionContainer.Invoke("PostOpenAiChatResponse", @{ "message" = $message; "dialog" = $dlg }) # hmf
 

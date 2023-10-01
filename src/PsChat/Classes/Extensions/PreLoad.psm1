@@ -3,7 +3,8 @@ using module "..\..\Private\OutHelper.psm1"
 
 class PreLoad {
     [string]$Prompt
-    [string]$Path
+    [string]$Path    
+    [object[]]$Objects 
     [string]$Role = "user"
     [bool]$Verbose = $false
     [bool]$Lock # ensures that the initial messages are always the first in the dialog
@@ -28,19 +29,29 @@ class PreLoad {
     }
 
     [Dialog] BeforeChatLoop([Dialog]$dialog) {
-        if($this.Path -and $this.Prompt) {
-            [OutHelper]::NonCriticalError("- PreLoad: Cannot use both -Preload_Prompt and -Preload_Path")
-            return $dialog
+        $this.InitialMessages = @()
+
+        # load from objects
+        $objs = $this.Objects
+        if($objs) {
+            [OutHelper]::Info("- Preload: From: $($objs.Count) objects")
+            # $this.InitialMessages = [DialogMessage]::ImportMessages((Get-Content $p))
+            foreach($obj in $objs) {
+                $message = [DialogMessage]::new($obj.Role, $obj.Content)
+                if($obj.Locked) {
+                    $message.Locked = $true
+                }
+                $this.InitialMessages += $message
+            }
         }
 
         # load from path
         $p = $this.Path
         if($p -and (Test-Path $p)) {
             [OutHelper]::Info("- Preload: From: $p")
-            # $this.InitialMessages = Get-Content $p | ConvertFrom-Json -NoEnumerate -AsHashtable
             $this.InitialMessages = [DialogMessage]::ImportMessages((Get-Content $p))
         }
-
+        
         # load from prompt
         if($this.Prompt) {
             $this.InitialMessages = @( [DialogMessage]::new($this.Role, $this.Prompt) )
