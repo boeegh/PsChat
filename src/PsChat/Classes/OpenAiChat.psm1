@@ -25,6 +25,9 @@ class OpenAiChatMessage {
     [string]$Content
     [OpenAiChatFunctionCall]$FunctionCall = $null
 
+    OpenAiChatMessage() {
+    }
+
     OpenAiChatMessage([string]$role, [string]$content) {
         $this.Role = $role
         $this.Content = $content

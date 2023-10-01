@@ -4,8 +4,9 @@ using module "..\..\Private\OutHelper.psm1"
 class PreLoad {
     [string]$Prompt
     [string]$Path
+    [string]$Role = "user"
     [bool]$Lock # ensures that the initial messages are always the first in the dialog
-    [object[]]$InitialMessages
+    [DialogMessage[]]$InitialMessages
 
     [Dialog] BeforeAnswer([Dialog]$dialog) {
         if(!$this.Lock) { return $dialog }
@@ -13,7 +14,7 @@ class PreLoad {
         # remove any "locked" messages
         $nlm = @()
         foreach($m in $dialog.Messages) {
-            if($m.locked) {
+            if($m.Locked) {
                 continue
             }
             $nlm += $m
@@ -35,12 +36,14 @@ class PreLoad {
         $p = $this.Path
         if($p -and (Test-Path $p)) {
             [OutHelper]::Info("- Preloading messages from: $p")
-            $this.InitialMessages = Get-Content $p | ConvertFrom-Json -NoEnumerate -AsHashtable
+            # $this.InitialMessages = Get-Content $p | ConvertFrom-Json -NoEnumerate -AsHashtable
+            $this.InitialMessages = [DialogMessage]::ImportMessages((Get-Content $p))
         }
 
         # load from prompt
         if($this.Prompt) {
-            $this.InitialMessages = @( @{ "role" = "user"; "content" = $this.Prompt } )
+            $this.InitialMessages = @( [DialogMessage]::new($this.Role, $this.Prompt) )
+            [OutHelper]::Info("- Preloaded $($this.Role)-prompt: $($this.Prompt)")
         }
 
         if(!$this.InitialMessages) {
@@ -52,7 +55,7 @@ class PreLoad {
         if($this.Lock) {
             # mark messages as locked
             foreach($m in $this.InitialMessages) {
-                $m.locked = $true
+                $m.Locked = $true
             }
         }
 

@@ -17,10 +17,17 @@ class Functions {
         $openAiMessages = $dialog.AsOpenAiChatMessages()
         while($null -ne $message.FunctionCall)
         {            
-            Write-Debug "Function call: $($message.FunctionCall.Name)"
-
             # call function that returns object
-            $result = $this.InvokePsFunction($message.FunctionCall.Name, $message.FunctionCall.Arguments)
+            $fnName = $message.FunctionCall.Name
+            Write-Debug "Functions: Calling '$fnName' with arguments $($message.FunctionCall.Arguments | ConvertTo-Json -Depth 10)"
+            $result = $null
+            try {
+                $result = $this.InvokePsFunction($message.FunctionCall.Name, $message.FunctionCall.Arguments)
+            } catch {
+                [OutHelper]::NonCriticalError("Functions: Call to '$fnName' failed: $($_.Exception.Message)")
+                return [OpenAiChatMessage]::FromAssistant("Function call failed: $($_.Exception.Message)")
+            }
+            Write-Debug "Functions: Call to '$fnName' returned $($result | ConvertTo-Json -Depth 10)"
 
             # add function result to existing messages
             $openAiMessages += [OpenAiChatMessage]::FromFunction($message.FunctionCall.Name, $result)
@@ -50,7 +57,7 @@ class Functions {
         # [OutHelper]::Info("Functions being loaded from $scriptPath.")
         # . $scriptPath
 
-        $functions = Get-Command -CommandType Function
+        $functions = Get-Command # -CommandType Function
         $chatFunctions = @()
         # $importedFunctions = $functions | Where-Object { $_.ScriptBlock.File -eq $scriptPath }
         $importedFunctions = $functions | Where-Object { $this.Names.Contains($_.Name) }
@@ -111,13 +118,8 @@ class Functions {
 
         $this.ChatApi.Functions = $chatFunctions
         
-        Write-Debug "$($this.ChatApi.Functions | ConvertTo-Json -Depth 10)"
-        # Display the functions
-        # [OutHelper]::Info("$yourFunctions")
-
-        #$this.Path = if($this.Path) { $this.Path } else { $this.GetName() }
-        #[OutHelper]::Info("AutoSaving to $($this.Path)")
-        [OutHelper]::Info("Functions activated.")
+        # Write-Debug "$($this.ChatApi.Functions | ConvertTo-Json -Depth 10)"
+        [OutHelper]::Info("Functions activated: $(($chatFunctions | ForEach-Object { $_.name }) -join ',').")
         return $dialog
     }
 }

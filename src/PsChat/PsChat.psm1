@@ -173,10 +173,10 @@ function Invoke-PsChat {
         [Parameter(Position=1)][Switch]$Single,
         # API parameters
         [string]$OpenAiAuthToken,
-        [string]$Model,
-        [decimal]$Temperature,
-        [decimal]$Top_P,
-        [bool]$Stream = $true,
+        # [string]$Model,
+        # [decimal]$Temperature,
+        # [decimal]$Top_P,
+#        [bool]$Stream = $true,
         [Parameter(ValueFromRemainingArguments=$true)]
         [object[]]$AdditionalArguments
         )
@@ -189,11 +189,10 @@ function Invoke-PsChat {
     # initialize the api
     $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
     $chat = [PsChatUi]::new($authToken, $options)
-    $chat.Stream = $Stream
-
-    if($Temperature) { $chat.ChatApi.Temperature = $Temperature }
-    if($Top_P) { $chat.ChatApi.Top_p = $Top_P }
-    if($Model) { $chat.ChatApi.Model = $Model }
+    # $chat.Stream = $true
+    # if($Temperature) { $chat.ChatApi.Temperature = $Temperature }
+    # if($Top_P) { $chat.ChatApi.Top_p = $Top_P }
+    # if($Model) { $chat.ChatApi.Model = $Model }
 
     $chat.Start()
     return

@@ -4,7 +4,7 @@ using module ..\Options.psm1
 using module "..\..\Private\OutHelper.psm1"
 
 class WordCountWarning {
-    [bool]$Enabled = $true
+    [bool]$Enabled = $false
     [int]$Threshold = 500
 
     [Dialog] BeforeQuestion([Dialog]$dialog) {
