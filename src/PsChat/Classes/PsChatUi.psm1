@@ -37,7 +37,7 @@ class PsChatUi {
             ))
     }
 
-    Start() {
+    [object] Start() {
         [OutHelper]::Info("Starting PsChat v$((Get-Module -Name PsChat).Version). Press 'q' to quit.")
         $dlg = $this.Dialog
         $dlg.Question = $this.Options.InitialQuestion
@@ -49,7 +49,9 @@ class PsChatUi {
                 $dlg = $this.ExtensionContainer.Invoke("BeforeAnswer", $dlg)
                 $dlg = $this.Invoke($dlg)
                 $dlg = $this.ExtensionContainer.Invoke("AfterAnswer", $dlg)
-                if ($this.Options.SingleQuestion) { break }
+                if ($this.Options.SingleQuestion) { 
+                    break
+                }
             }
 
             # execute extension logic before a question
@@ -63,6 +65,7 @@ class PsChatUi {
         } while ($dlg.Question -ne "q" )
 
         $this.ExtensionContainer.Invoke("AfterChatLoop", $dlg) | Out-Null
+        return $dlg
     }
 
     [Dialog] Invoke([Dialog]$dlg) {

@@ -24,7 +24,7 @@ class OpenAiChatMessage {
     [string]$Role
     [string]$Content
     [OpenAiChatFunctionCall]$FunctionCall = $null
-
+    
     OpenAiChatMessage() {
     }
 

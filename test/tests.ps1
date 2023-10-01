@@ -1,22 +1,30 @@
-# function Get-Random-Number-Test {
-#   Invoke-PsChat -Question "Give me a random number" -Single -Functions_Names @("Get-Random-Number") >> ./out.tmp
-#   Write-Output "$(cat ./out.tmp)"
-#   rm ./out.tmp
-# }
 $NAME_QUESTION = "What is your name?"
 $NAME_ANSWER = "OpenAI"
 
+function AssertContains($result, $expected) {
+  $success = ($result -join "").Contains($expected)
+  if($success -eq $false) {
+    Write-Host "- Expected: $expected"
+    Write-Host "- Actual: $result"
+  } 
+  return $success
+} 
+
+function AssertNotNull($result) {
+  return $null -ne $result
+}
+
 function Get-PsChatAnswer-Direct-String-Input {
-  (Get-PsChatAnswer -Temperature 0.1 $NAME_QUESTION).Contains($NAME_ANSWER)
+  AssertContains (Get-PsChatAnswer -Temperature 0.1 $NAME_QUESTION) $NAME_ANSWER
 }
 
 function Get-PsChatAnswer-Piped-String-Input {
-  ($NAME_QUESTION | Get-PsChatAnswer -Temperature 0.1).Contains($NAME_ANSWER)
+  AssertContains ($NAME_QUESTION | Get-PsChatAnswer -Temperature 0.1) $NAME_ANSWER
 }
 
 function Get-PsChatAnswer-Object-As-Input {
   $message = @{ "role"="user"; "content"=$NAME_QUESTION }
-  (Get-PsChatAnswer -InputObject $message -Temperature 0.1).Contains($NAME_ANSWER)
+  AssertContains (Get-PsChatAnswer -InputObject $message -Temperature 0.1) $NAME_ANSWER
 }
 
 function Get-PsChatAnswer-Object-As-Input-Array {
@@ -24,11 +32,21 @@ function Get-PsChatAnswer-Object-As-Input-Array {
     @{ "role"="user"; "content"="Please answer using markdown." }
     @{ "role"="user"; "content"=$NAME_QUESTION }
   )
-  (Get-PsChatAnswer -InputObject $message -Temperature 0.1).Contains($NAME_ANSWER)
+  AssertContains (Get-PsChatAnswer -InputObject $message -Temperature 0.1) $NAME_ANSWER
 }
 
-# todo:
-# * extensions in non-interaction mode
-# * object output from functions
-# * token calculation
-# *  
+function Invoke-PsChat-Function-Test {
+  $result = Invoke-PsChat -Single -Question "Whats the uptime?" `
+     -Functions_Names @("Get-Uptime") `
+     -NonInteractive
+  $message = ($result | Where-Object { $_.Role -match "assistant" })
+  AssertContains $message "uptime"
+}
+
+function Invoke-PsChat-PreLoad-Prompt {
+  $result = Invoke-PsChat -Single -Question "Make a short Powershell Hello-World script" `
+     -PreLoad_Prompt "Answer using markdown" `
+     -NonInteractive
+  $message = ($result | Where-Object { $_.Role -match "assistant" })
+  AssertContains $message "```powershell"
+}
