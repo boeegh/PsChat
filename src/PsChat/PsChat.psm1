@@ -176,6 +176,7 @@ function Invoke-PsChat {
         [Parameter(Position=1)][Switch]$Single,
         [Parameter(Position=2)][Switch]$NonInteractive,
         [Parameter(Position=3)][Switch]$SkipQuestion,
+        [ResultType]$ResultType = [ResultType]::None,
         [string]$OpenAiAuthToken,
         [Parameter(ValueFromRemainingArguments=$true)]
         [object[]]$AdditionalArguments
@@ -189,18 +190,21 @@ function Invoke-PsChat {
     $options.SkipQuestion = $SkipQuestion
 
     # disable all output if non-interactive
-    if($NonInteractive) {
-        [OutHelper]::HostOutput = $false
-    }
+    [OutHelper]::HostOutput = -not($NonInteractive)
 
     # initialize the api
     $authToken = if($OpenAiAuthToken) { $OpenAiAuthToken } else { $ENV:OPENAI_AUTH_TOKEN }
     $chat = [PsChatUi]::new($authToken, $options)
     $dlg = $chat.Start()
-    if($NonInteractive) {
-        return [DialogMessage]::AsObjects($dlg.Messages)
+
+    # output answer if specified
+    switch($ResultType) {
+        None { return }
+        Objects { return [DialogMessage]::AsObjects($dlg.Messages) }
+        LastAnswerAsText {
+            return $dlg.Messages[-1].Content 
+        }
     }
-    return
 }
 
 function New-OpenAiChat {

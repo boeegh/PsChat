@@ -60,13 +60,21 @@ class ExtensionContainer {
 
                 $prop = $ext.GetType().GetProperty($propName)
                 if($prop) {
-                    Write-Debug "ExtensionContainer: Setting $($propName) on $($type.Name) with value: $($propValue)"
+                    Write-Debug "ExtensionContainer: Setting $($propName) ($($prop.PropertyType)) on $($type.Name) with value: $($propValue)"
+                    $propValue = $this.EnsureType($prop.PropertyType, $propValue)
                     $prop.SetValue($ext, $propValue)
                 } else {
                     [OutHelper]::NonCriticalError("ExtensionContainer: $($prop.Name) not found on $($type.Name)")
                 }
             }
         }
+    }
+
+    [object] EnsureType($propertType, $value) {
+        if($value -is $propertType) {
+            return $value
+        }
+        return [System.Convert]::ChangeType($value, $propertType)
     }
 
     [object] Invoke([string]$eventName, [object]$inputObject) {

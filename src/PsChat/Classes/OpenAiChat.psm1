@@ -15,7 +15,15 @@ class OpenAiChatFunctionCall {
     static [OpenAiChatFunctionCall] Parse([object]$rawFunctionCall) {
         $fc = [OpenAiChatFunctionCall]::new()
         $fc.Name = $rawFunctionCall.name
-        $fc.Arguments = $rawFunctionCall.arguments | ConvertFrom-Json -AsHashtable
+        #Write-Debug "$($rawFunctionCall.arguments), type=$($rawFunctionCall.arguments.GetType())"
+        if($rawFunctionCall.arguments -ne "()") {
+            try {
+                $fc.Arguments = $rawFunctionCall.arguments | ConvertFrom-Json -AsHashtable
+            } catch {
+                Write-Debug "Failed to parse arguments: $($_)"
+            }
+        }
+        #Write-Debug "Successfully parsed function call: $($fc | ConvertTo-Json -Depth 10)"
         return $fc
     }
 }

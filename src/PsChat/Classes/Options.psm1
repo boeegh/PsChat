@@ -5,3 +5,9 @@ class Options {
     [bool]$SkipQuestion
     [bool]$NonInteractive
 }
+
+Enum ResultType {
+    None
+    Objects
+    LastAnswerAsText
+}
