@@ -8,6 +8,7 @@ using module "..\Commands\VariantCommand.psm1"
 using module "..\Commands\CompressionCommand.psm1"
 using module "..\Commands\ClipboardCommand.psm1"
 using module "..\Commands\ApiSettingsCommand.psm1"
+using module "..\Commands\ChordsCommand.psm1"
 
 class Commands {
     [Options]$Options
@@ -21,7 +22,8 @@ class Commands {
             [VariantCommand]::new(),
             [CompressionCommand]::new(),
             [ClipboardCommand]::new(),
-            [ApiSettingsCommand]::new()
+            [ApiSettingsCommand]::new(),
+            [ChordsCommand]::new()
         )
     }
 
