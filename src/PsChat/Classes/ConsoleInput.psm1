@@ -75,6 +75,12 @@ class ConsoleInput {
     [bool] $TreatControlCAsInput = $false
     [bool] $NewLineOnEnter = $true
     [ConsoleInputExtension[]] $Extensions = @()
+    [ConsoleKey[]] $ExitKeys = @([ConsoleKey]::Enter, [ConsoleKey]::Escape)
+    [bool] $AltEnterBehavior = $false
+    [object] $ChordMap = @{
+        [int][ConsoleKey]::V = { $this.Paste($state) }
+        [int][ConsoleKey]::E = { $this.AltEnterBehavior = !$this.AltEnterBehavior }
+    }
 
     static [string] Read() {
         $ci = [ConsoleInput]::new()
@@ -85,9 +91,20 @@ class ConsoleInput {
         return [RuntimeInformation]::IsOSPlatform([OSPlatform]::OSX)
     }
 
-    [bool] IsExitKey($key) {
-#        return ($key.Key -eq [ConsoleKey]::Escape -or $key.Key -eq [ConsoleKey]::Enter)
-        return ($key.Key -eq [ConsoleKey]::Enter)
+    [bool] IsWindows() {
+        return [RuntimeInformation]::IsOSPlatform([OSPlatform]::Windows)
+    }
+
+    [bool] IsExitKey($state, $key) {
+        if($key.Modifiers -band [ConsoleModifiers]::Shift) {
+            return $false
+        }
+
+        if($key.Key -eq [ConsoleKey]::Enter -and $this.AltEnterBehavior) {
+            return $false
+        }
+
+        return ($this.ExitKeys -contains $key.Key)
     }
 
     [bool] IsIgnored($key) {
@@ -96,7 +113,18 @@ class ConsoleInput {
             $key.Modifiers -band [ConsoleModifiers]::Control
     }
 
+    [bool] IsChord($key) {
+        if(($key.KeyChar -eq "π" -and $this.IsMacOS())) {
+            return $true
+        }
+        if($key.KeyChar -eq "p" -and $key.Modifiers -band [ConsoleModifiers]::Alt) {
+            return $true
+        }
+        return $false
+    }
+
     [int] GetNavigationDelta($state, $key) {
+        # todo: support for home and key-keys
         # note: for some reason, its required to cast the enum to int explicitly
         switch ([int]$key.Key) {
             ([int][ConsoleKey]::LeftArrow) {
@@ -131,17 +159,30 @@ class ConsoleInput {
      }
 
     UpdateCursorPosition($state) {
-        $currentLeft = $state.InitialCursorLeft + $state.CursorPos
-        $topDelta = [Math]::Floor($currentLeft / $state.WindowWidth())
-        $leftDelta = $currentLeft % $state.WindowWidth()
-        $top = $state.InitialCursorTop + $topDelta
-        if($top -ge $state.WindowHeight()) {
-            [Console]::Write("`n")
-            $state.InitialCursorTop -= 1
-            $top = $state.WindowHeight() -1 
+        if($state.CursorPos -gt $state.Text.Length) {
+            $state.CursorPos = $state.Text.Length
         }
+
+        # calculate actual cursor pos when text includes newlines
+        $leftText = $state.Text.Substring(0, $state.CursorPos)
+        $left = $state.InitialCursorLeft
+        $top = $state.InitialCursorTop
+        foreach($char in $leftText.ToCharArray()) {            
+            if($char -eq "`n") {
+                $top += 1
+                $left = 0
+                continue
+            }
+
+            $left += if($char -eq "`t") { 4 } else { 1 }
+            if($left -ge $state.WindowWidth()) {
+                $left = 0
+                $top += 1
+            }
+        }
+
         [Console]::CursorTop = $top
-        [Console]::CursorLeft = $leftDelta
+        [Console]::CursorLeft = $left
     }
 
     RemoveCharacterLeft($state) {
@@ -172,29 +213,64 @@ class ConsoleInput {
         }
         [Console]::CursorTop = 5
         [Console]::CursorLeft = 0
-        [Console]::WriteLine("Debug/Message: $message")
-        [Console]::WriteLine("Key: $($key.KeyChar)")
-        [Console]::WriteLine("KeyChar.IsControl: $([char]::IsControl($key.KeyChar))")
-        [Console]::WriteLine("WindowWidth: $($state.WindowWidth())")
-        [Console]::WriteLine("WindowHeight: $($state.WindowHeight())")
+        [Console]::WriteLine("Debug/Message: $message $(" "*40)")
+        [Console]::WriteLine("Key: $($key.KeyChar) $(" "*4)")
+        [Console]::WriteLine("KeyChar.IsControl: $([char]::IsControl($key.KeyChar)) $(" "*4)")
+        [Console]::WriteLine("WindowWidth: $($state.WindowWidth()) $(" "*4)")
+        [Console]::WriteLine("WindowHeight: $($state.WindowHeight()) $(" "*4)")
         [Console]::WriteLine($($state | ConvertTo-Json -Depth 10))
         [Console]::WriteLine($($key | ConvertTo-Json -Depth 10))
         $this.UpdateCursorPosition($state)
     }
 
     WriteText($state) {
+        [Console]::CursorVisible = $false
+
+        # write text while clearing unused space
         [Console]::CursorTop = $state.InitialCursorTop
         [Console]::CursorLeft = $state.InitialCursorLeft
-        [Console]::Write("$($state.Text)")
-
-        # overwrite remaining characters with spaces
-        $shorter = $state.PreviousText.Length - $state.Text.Length
-        if($shorter -gt 0) {
-            [Console]::Write(" " * $shorter)
+        $top = $state.InitialCursorTop
+        foreach($char in $state.Text.ToCharArray()) {            
+            if($char -eq "`n") {
+                # clear rest of the line
+                $top += 1
+                [Console]::Write(" " * ($state.WindowWidth() - [Console]::CursorLeft))
+                if($this.IsWindows()) {
+                    # todo: test for linux
+                    [Console]::Write("`n")
+                }
+                continue
+            }
+            [Console]::Write($char)
+            if([Console]::CursorLeft -eq 0 -or [Console]::CursorTop -gt $top) {
+                $top += 1
+            }
         }
+        # clear final line
+        [Console]::Write(" " * ($state.WindowWidth() - [Console]::CursorLeft))
+
+        $topAfter = [Console]::CursorTop
+        # [Console]::Title = "top-calc: $top, top-curosr: $topAfter"
+        if($top -eq $state.WindowHeight() -and $topAfter -eq $state.WindowHeight() - 1) {
+            $state.InitialCursorTop -= 1
+        }
+
 
         $this.UpdateCursorPosition($state)
         $state.PreviousText = $state.Text
+        [Console]::CursorVisible = $true
+    }
+
+    Paste($state) {
+        $content = (Get-Clipboard -Raw | Select-Object -First 1)
+        if(!$content) {
+            return
+        }
+        $contentRemaining = $state.Text.Substring($state.CursorPos)
+        $state.Text = $state.Text.Substring(0, $state.CursorPos) + $content + $contentRemaining
+        $state.CursorPos += $content.Length
+        $this.WriteText($state)
+        $this.UpdateCursorPosition($state)
     }
 
     [string] ReadLine() {
@@ -218,8 +294,8 @@ class ConsoleInput {
 
             $this.UpdateDebugInfo($state, $key, "")
 
-            # exit (enter or escape)
-            if ($this.IsExitKey($key)) {
+            # exit (based on ExitKeys property)
+            if ($this.IsExitKey($state, $key)) {
                 if($this.NewLineOnEnter) {
                     [Console]::WriteLine()
                 }
@@ -230,18 +306,21 @@ class ConsoleInput {
             $delta = $this.GetNavigationDelta($state, $key)
             if($delta -ne 0) {
                 $this.NavigateTextLeft($state, $delta)
+                $this.UpdateDebugInfo($state, $key, "")
                 continue
             }
 
             # deleting (backspace, delete)
             if ($key.Key -eq [ConsoleKey]::BackSpace) {
                 $this.RemoveCharacterLeft($state)
-                $this.NavigateTextLeft($state, -1)
+                $this.UpdateDebugInfo($state, $key, "")
+                # $this.NavigateTextLeft($state, -1)
                 continue
             }
 
             if ($key.Key -eq [ConsoleKey]::Delete) {
                 $this.RemoveCharacterRight($state)
+                $this.UpdateDebugInfo($state, $key, "")
                 continue
             }
 
@@ -252,12 +331,39 @@ class ConsoleInput {
                 continue
             }
 
+            # chords allow for alt-p + v to paste
+            if($this.IsChord($key)) {
+                $title = ""
+                if($this.IsWindows()) {
+                    $title = [Console]::Title
+                    $chords = $this.ChordMap.Keys | ForEach-Object { [char]$_ }
+                    [Console]::Title = "Chord mode activated. Available chords: $($chords -join ", ")"
+                }
+                $map = $this.ChordMap
+                $key = [int][Console]::ReadKey($true).Key
+                if($this.IsWindows()) {
+                    [Console]::Title = $title
+                }
+                if($map[$key]) {
+                    $map[$key].Invoke()
+                }
+                continue
+            }
+
+            # if alternative enter behavior is enabled (or shift is down on pc), enter will insert a newline
+            if (($this.AltEnterBehavior -or $key.Modifiers -band [ConsoleModifiers]::Shift) -and $key.Key -eq [ConsoleKey]::Enter) {
+                $this.InsertCharacter($state, "`n")
+                [Console]::CursorLeft = 0
+                continue
+            }
+
             # ignored keys (alt, ctrl, control characters)
             if ($this.IsIgnored($key) -or [char]::IsControl($key.KeyChar)) {
                 continue
             }
 
             $this.InsertCharacter($state, $key.KeyChar)
+            $this.UpdateDebugInfo($state, $key, "")
 
         } while ($true)
 
@@ -265,6 +371,15 @@ class ConsoleInput {
     }
 }
 
-# $input = [ConsoleInput]::new()
-# $input.Debug = $true
-# $input.ReadLine("Enter text: ")
+# Windows PSC: pwsh -Command $(Get-Content -Raw "./src/PsChat/Classes/ConsoleInput.psm1")
+# MacOS PSC: pwsh -nop ./src/PsChat/Classes/ConsoleInput.psm1 -Debug
+if($args -eq "-Debug") {
+    clear
+    # Write-Host "`n" * 20
+    # Write-Host $args
+    [Console]::Write("`n" * 30)
+    $input = [ConsoleInput]::new()
+    $input.Debug = $true
+    # $input.AltEnterBehavior = $true
+    $input.ReadLine("Enter text $(Get-Date): ")
+}
