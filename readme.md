@@ -65,7 +65,9 @@ Asking for help (available commands) in the chat:
 ![Screenshot of the chat having pressed H.](/assets/Screenshot-In-Chat-Help.png)
 
 ## Examples
-* [Bad Code Finder](examples/bad-code-finder.ps1): Powershell script that traverses source codes and uses GPT to find sensitive data.
+* [Bad Code Finder](examples/bad-code-finder.ps1): Powershell script that traverses source codes and uses GPT to find sensitive data. Usage: Download the ps1-file, run it (with $ENV:OPENAI_AUTH_TOKEN set) in a directory containing source code.
+* [Dual Minded](examples/dual-minded.ps1): Dual-minded makes OpenAI have both sides of a conversation.
+* [Save and Load](examples/save-and-load-chats.ps1): Simple examples of saving and preloading context for chats.
 
 ## Extensions
 Extension-framework is wip, but a few built-in extensions are available:
@@ -77,8 +79,18 @@ Extension-framework is wip, but a few built-in extensions are available:
 * `Functions` - NEW: Allows OpenAI chat to call Powershell functions during an answer/chat-completion
 * `Api` - NEW: Allows you to set chat-completion API parameters, such as base-url, model and temperature
 
+Extensions can have multiple parameters, that can be set when calling `Invoke-PsChat`, such as `Invoke-PsChat -Api_Model "gpt-4"`.
+With multiple parameters a Powershell alias can come in handy:
+```Powershell
+# setup function
+function Invoke-PsChat-Yaml { Invoke-PsChat -Api_Model "gpt-4" -PreLoad_Prompt "Answer only with YAML" -PreLoad_Lock $true }
+
+# define alias
+New-Alias -Name q -Value Invoke-PsChat-Yaml -Force -Option AllScope -Description 'Usage: q "Whats life?"'
+```
+
 ## Commands
-Commands are extensions for the UI chat. These are available when the user enters `'h'` in the chat.
+Commands are extensions for the UI chat, such as changing the model on-the-fly. These are available when the user enters `'h'` in the chat.
 
 ## Dev notes
 For development this approach seems to work best:
