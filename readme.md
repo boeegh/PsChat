@@ -10,6 +10,7 @@ I made it to use and explore ChatGPT the place, I mostly find myself: In the she
 The module requires OpenAI API access. You can get an API key from: https://platform.openai.com/signup
 
 ## News
+* 2023-10-22 - Better copy-paste support (press ALT-P + V)
 * 2023-10-01 - Support for function calling, end-to-end tests
 
 ## Getting started
@@ -62,6 +63,9 @@ Started using alias 'q':
 
 Asking for help (available commands) in the chat:
 ![Screenshot of the chat having pressed H.](/assets/Screenshot-In-Chat-Help.png)
+
+## Examples
+* [Bad Code Finder](examples/bad-code-finder.ps1): Powershell script that traverses source codes and uses GPT to find sensitive data.
 
 ## Extensions
 Extension-framework is wip, but a few built-in extensions are available:
