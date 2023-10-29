@@ -149,9 +149,7 @@ class ConsoleInput {
         $rest = $this.state.Text.Substring($this.state.CursorPos)
         $this.state.Text = $this.state.Text.Substring(0, $this.state.CursorPos - 1) + $rest
 
-        if($this.IsWindows() -and $rest.Length -gt 0) {
-            $this.NavigateTextLeft($this.state, -1)
-        }
+        $this.NavigateTextLeft(-1)
 
         $this.Update()
     }

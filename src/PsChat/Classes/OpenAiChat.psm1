@@ -234,6 +234,14 @@ class OpenAiChat {
             $dataPrefix = "data: "
             while (!$streamReader.EndOfStream)
             {
+                # allow escape from streaming
+                if ([Console]::KeyAvailable) {
+                    $key = [Console]::ReadKey($true)
+                    if($key.Key -eq [ConsoleKey]::Escape) {
+                        break
+                    }
+                }
+
                 # each line will begin with "data: ", the final line will be "data: [DONE]"
                 $line = $streamReader.ReadLine()
                 if (!$line.StartsWith($dataPrefix)) {
