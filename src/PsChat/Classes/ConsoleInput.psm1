@@ -179,7 +179,7 @@ class ConsoleInput {
                 $left = 0
                 $top += 1
             }
-        }
+        }        
 
         [Console]::CursorTop = $top
         [Console]::CursorLeft = $left
@@ -189,7 +189,14 @@ class ConsoleInput {
         if($state.CursorPos -eq 0) {
             return
         }
-        $state.Text = $state.Text.Substring(0, $state.CursorPos - 1) + $state.Text.Substring($state.CursorPos)
+        $rest = $state.Text.Substring($state.CursorPos)
+        $state.Text = $state.Text.Substring(0, $state.CursorPos - 1) + $rest
+
+        # $this.UpdateDebugInfo($state, $key, "")
+        if($this.IsWindows() -and $rest.Length -gt 0) {
+            $this.NavigateTextLeft($state, -1)
+        }
+
         $this.WriteText($state)
     }
 
@@ -226,38 +233,57 @@ class ConsoleInput {
     WriteText($state) {
         [Console]::CursorVisible = $false
 
+        # clear existing content
+        $blankText = $state.PreviousText -replace '[^\n\t]', ' '
+        [Console]::CursorTop = $state.InitialCursorTop
+        [Console]::CursorLeft = $state.InitialCursorLeft
+        [Console]::Write($blankText)
+
+        # debug background color
+        $bgColor = [Console]::BackgroundColor
+        # $this.Debug = $true
+        if($this.Debug) {
+            [Console]::BackgroundColor = [ConsoleColor]::DarkGray
+        }
+
+        # calculate actual space used by text
+        $top = $state.InitialCursorTop
+        $left = $state.InitialCursorLeft
+        foreach($char in $state.Text.ToCharArray()) {            
+            if($char -eq "`n") {
+                $left = 0
+                $top += 1
+                continue
+            }
+
+            # todo: tab support
+
+            $left += 1
+            if($left -ge $state.WindowWidth()) {
+                $left = 0
+                $top += 1
+            }
+        }
+
+        # if text is too long, scroll up
+        if($top -gt $state.WindowHeight() - 1) {
+            [Console]::CursorTop = $state.WindowHeight() - 1
+            [Console]::CursorLeft = 0
+            $delta = $top - $state.WindowHeight() + 1
+            [Console]::Write("`n" * $delta)
+            $state.InitialCursorTop -= $delta
+        }
+    
         # write text while clearing unused space
         [Console]::CursorTop = $state.InitialCursorTop
         [Console]::CursorLeft = $state.InitialCursorLeft
-        $top = $state.InitialCursorTop
-        foreach($char in $state.Text.ToCharArray()) {            
-            if($char -eq "`n") {
-                # clear rest of the line
-                $top += 1
-                [Console]::Write(" " * ($state.WindowWidth() - [Console]::CursorLeft))
-                if($this.IsWindows()) {
-                    # todo: test for linux
-                    [Console]::Write("`n")
-                }
-                continue
-            }
-            [Console]::Write($char)
-            if([Console]::CursorLeft -eq 0 -or [Console]::CursorTop -gt $top) {
-                $top += 1
-            }
-        }
-        # clear final line
-        [Console]::Write(" " * ($state.WindowWidth() - [Console]::CursorLeft))
+        [Console]::Write($state.Text)
 
-        $topAfter = [Console]::CursorTop
-        # [Console]::Title = "top-calc: $top, top-curosr: $topAfter"
-        if($top -eq $state.WindowHeight() -and $topAfter -eq $state.WindowHeight() - 1) {
-            $state.InitialCursorTop -= 1
-        }
-
-
+        [Console]::BackgroundColor = $bgColor
+        
         $this.UpdateCursorPosition($state)
         $state.PreviousText = $state.Text
+
         [Console]::CursorVisible = $true
     }
 
@@ -313,8 +339,6 @@ class ConsoleInput {
             # deleting (backspace, delete)
             if ($key.Key -eq [ConsoleKey]::BackSpace) {
                 $this.RemoveCharacterLeft($state)
-                $this.UpdateDebugInfo($state, $key, "")
-                # $this.NavigateTextLeft($state, -1)
                 continue
             }
 
@@ -373,13 +397,13 @@ class ConsoleInput {
 
 # Windows PSC: pwsh -Command $(Get-Content -Raw "./src/PsChat/Classes/ConsoleInput.psm1")
 # MacOS PSC: pwsh -nop ./src/PsChat/Classes/ConsoleInput.psm1 -Debug
-if($args -eq "-Debug") {
+if("$args" -eq "-ConsoleDebug") {
     clear
     # Write-Host "`n" * 20
     # Write-Host $args
-    [Console]::Write("`n" * 30)
+    [Console]::Write("`n" * 15)
     $input = [ConsoleInput]::new()
-    $input.Debug = $true
-    # $input.AltEnterBehavior = $true
+    # $input.Debug = $true
+    $input.AltEnterBehavior = $true
     $input.ReadLine("Enter text $(Get-Date): ")
 }
