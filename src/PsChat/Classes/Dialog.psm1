@@ -1,4 +1,5 @@
-using module ".\ConsoleInput.psm1"
+using module ".\Console\ConsoleInput.psm1"
+using module ".\Console\ConsoleInputHistory.psm1"
 using module "..\Private\OutHelper.psm1"
 using module ".\OpenAiChat.psm1"
 
