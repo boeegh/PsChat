@@ -21,7 +21,14 @@ class ConsoleInput {
         return $ci.ReadLine()
     }
 
+    [bool] PsClassic() {
+        return (Get-Host).Version.Major -lt 6
+    }
+    
     [bool] IsMacOS() {
+        if($this.PsClassic()) {
+            return $false
+        }
         return [RuntimeInformation]::IsOSPlatform([OSPlatform]::OSX)
     }
 

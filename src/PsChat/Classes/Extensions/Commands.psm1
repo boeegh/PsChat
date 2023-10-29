@@ -1,4 +1,4 @@
-using module "..\Dialog.psm1"
+﻿using module "..\Dialog.psm1"
 using module "..\Options.psm1"
 using module "..\OpenAiChat.psm1"
 using module "..\..\Private\OutHelper.psm1"
