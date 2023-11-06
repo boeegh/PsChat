@@ -71,7 +71,7 @@ Asking for help (available commands) in the chat:
 
 ## Extensions
 Extension-framework is wip, but a few built-in extensions are available:
-* `AutoSave` - Saves the chat to json (which can later be loaded back in)
+* `AutoSave` - Saves the chat to json (which can later be loaded back in using `PreLoad`)
 * `WordCountWarning` - Informs the user when a certain word-count is reached (for cost-saving purposes)
 * `PreLoad` - Preloads messages from a file or string. Optionally "lock" the loaded messages
 * `Commands` - In-chat commands, such as clipboard access and API settings
@@ -87,7 +87,38 @@ function Invoke-PsChat-Yaml { Invoke-PsChat -Api_Model "gpt-4" -PreLoad_Prompt "
 
 # define alias
 New-Alias -Name q -Value Invoke-PsChat-Yaml -Force -Option AllScope -Description 'Usage: q "Whats life?"'
+
+# usage
+q "Describe the rules of tic-tac-toe?"
 ```
+
+### List of extension parameters
+All extension parameters are optional.
+| Extension | Parameter | Type | Description |
+| --- | --- | --- | --- |
+| Api | Enabled | bool | Enable/disable extension. Defaults to `$true`. |
+| Api | Verbose | bool | If `$true` writes out parameters on startup |
+| Api | AuthToken | string | OpenAI auth token to use |
+| Api | Model | string | Model name, eg. `gpt-4` |
+| Api | Temperature | decimal | Model temperature |
+| Api | Top_P | decimal | Model top_p |
+| Api | Baseurl | string | Base url for model API |
+| AutoSave | Enabled | bool | Enable/disable extension. Defaults to `$false`. |
+| AutoSave | Path | string | Specifies the path the chat will be saved to, eg. `~/my-chat.json`. If not specified the path `./pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").json` will be used. |
+| Functions | Enabled | bool | Enable/disable extension. Defaults to `$true`. |
+| Functions | Names | string[] | Powershell functions to expose in the chat. Eg. `@( "Get-Uptime" )` |
+| PreLoad | Prompt | string | Simple prompt to start chat with. |
+| PreLoad | Role | string | Role for `Prompt`, for OpenAI can be `user`, `assistant` or `system`. |
+| PreLoad | Path | string | Load chat from this path eg. `./my-chat.json`. |
+| PreLoad | Objects | object[] | Allows preloading based on PsObjects, eg. `@( @{ "Role"="system"; "Content"="Hi!"; "Locked"=$true } )` |
+| PreLoad | Verbose | bool | Makes the extension more talkative. |
+| PreLoad | Lock | bool | Locks the preloaded prompt/chat, so an extension like `ShortTerm` does not affect them. |
+| ShortTerm | Enabled | bool | Enable/disable extension. Defaults to `$true`. |
+| ShortTerm | Verbose | bool | Makes the extension more talkative. |
+| ShortTerm | Compress | bool | Compresses messages that are due to be removed. |
+| ShortTerm | CompressPrompt | string | Prompt to use when compressing messages to be "forgotten". |
+| ShortTerm | TokenCountThreshold | int | Number of (approx) tokens that triggers removal of the oldest messages. Defaults to model context size minus 1.000. |
+| ShortTerm | WordCountThreshold | int | Same as TokenCountThreshold, but based on words. Considered deprecated. |
 
 ## Commands
 Commands are extensions for the UI chat, such as changing the model on-the-fly. These are available when the user enters `'h'` in the chat.
