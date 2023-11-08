@@ -55,7 +55,7 @@ class ExtensionContainer {
                     continue
                 }
 
-                $propName = $optName.Split("_")[1]
+                $propName = $optName.Substring($optName.IndexOf("_")+1)
                 $propValue = $opt[$i+1]
 
                 $prop = $ext.GetType().GetProperty($propName)

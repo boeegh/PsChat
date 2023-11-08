@@ -32,6 +32,7 @@ class OpenAiChatMessage {
     [string]$Role
     [string]$Content
     [OpenAiChatFunctionCall]$FunctionCall = $null
+    [OpenAiChatMessage[]]$AltChoices = @()
     
     OpenAiChatMessage() {
     }
@@ -50,6 +51,20 @@ class OpenAiChatMessage {
             $raw.name = $this.FunctionCall.Name
         }
         return $raw
+    }
+
+    static [OpenAiChatMessage] ParseChoices([object[]]$rawMessages) {
+        if($rawMessages.Count -eq 0) {
+            return $null
+        }
+
+        $messages = @()
+        foreach($rawMessage in $rawMessages) {
+            $messages += [OpenAiChatMessage]::Parse($rawMessage)
+        }
+        $message = $messages[0]
+        $message.AltChoices = $messages[1..($messages.Count-1)]
+        return $message
     }
 
     static [OpenAiChatMessage] Parse([object]$rawMessage) {
@@ -96,6 +111,8 @@ class OpenAiChat {
     [string]$Baseurl = "https://api.openai.com/v1/"
     [bool]$Stream = $false
     [object]$Functions
+    [int]$Max_Tokens = 0
+    [object]$Response_Format
 
     OpenAiChat([string]$authToken) {
         $this.AuthToken = $authToken
@@ -127,6 +144,12 @@ class OpenAiChat {
         if($this.Stream) {
             $body.stream=$true
         }
+        if($this.Max_Tokens -ne 0) {
+            $body.max_tokens = $this.Max_Tokens
+        }
+        if($this.Response_Format) {
+            $body.response_format = $this.Response_Format | ConvertTo-Json
+        }
 
         return $this.InvokeRequestObject("chat/completions", $body, $success)
     }
@@ -143,26 +166,26 @@ class OpenAiChat {
         $requestBodyJson = $requestBody | ConvertTo-Json -Depth 10
 
         $response = $null
+        if($this._debug) {
+            Write-Debug "Request:`n$requestBodyJson"
+        }
+
+        if(!$this.httpClient) {
+            $this.httpClient = [HttpClient]::new()
+        }
+
+        # create an HTTP request with a range header to receive only a specific chunk of data
+        $request = [HttpRequestMessage]::new([HttpMethod]::Post, [Uri]::new($url))
+        foreach($key in $headers.Keys) {
+            $request.Headers.Add($key, $headers[$key])
+        }
+        if($this.Stream) {
+            $request.Headers.Range = [RangeHeaderValue]::new(0, 1024)
+        }
+        $request.Content = [StringContent]::new($requestBodyJson, [Encoding]::UTF8, $this.httpContentType)
+
+        # send the HTTP request and get the response
         try {
-            if($this._debug) {
-                Write-Debug "Request:`n$requestBodyJson"
-            }
-
-            if(!$this.httpClient) {
-                $this.httpClient = [HttpClient]::new()
-            }
-
-            # create an HTTP request with a range header to receive only a specific chunk of data
-            $request = [HttpRequestMessage]::new([HttpMethod]::Post, [Uri]::new($url))
-            foreach($key in $headers.Keys) {
-                $request.Headers.Add($key, $headers[$key])
-            }
-            if($this.Stream) {
-                $request.Headers.Range = [RangeHeaderValue]::new(0, 1024)
-            }
-            $request.Content = [StringContent]::new($requestBodyJson, [Encoding]::UTF8, $this.httpContentType)
-
-            # send the HTTP request and get the response
             $response = $this.httpClient.SendAsync($request, [HttpCompletionOption]::ResponseHeadersRead).Result
             if(!$response.IsSuccessStatusCode) {
                 throw "An error occurred: $($response.StatusCode)"
@@ -184,7 +207,7 @@ class OpenAiChat {
             } catch {
             }
             if($this._debug) {
-                [OutHelper]::NonCriticalError("$($_)")
+                [OutHelper]::NonCriticalError("Error while calling api", $_)    
                 [OutHelper]::NonCriticalError("Request:`n$requestBodyJson")
                 [OutHelper]::NonCriticalError("Response:`n$failureBody")
             }
@@ -257,32 +280,44 @@ class OpenAiChat {
                 }
 
                 $chunk = $line | ConvertFrom-Json
-                if(!$chunk.choices -or $chunk.choices.Count -ne 1) {
+                if(!$chunk.choices -or $chunk.choices.Count -lt 1) {
                     continue
                 }
 
                 # update the choices array with the new choice
-                $delta = $chunk.choices[0].delta # {"content":" you"}
-                $index = "i$($chunk.choices[0].index)" # 0
-
-                $c = $choices[$index] 
-                if(!$c) {
-                    $c = $choices[$index] = @{}
-                }
-
-                $contentPreDelta = $c.content
-                $c = $choices[$index] = $this.ApplyDelta($c, $delta)
-
-                # output content-delta if any
-                $contentDelta = $c.content.Substring($contentPreDelta.Length)
-                if($contentDelta -ne "") {
-                    if($firstContent) {
-                        [OutHelper]::GptDelta("", $true) # writes GPT:
-                        $firstContent = $false
+                foreach($choice in $chunk.choices) {
+                    # $delta = $chunk.choices[0].delta # {"content":" you"}
+                    # $index = "i$($chunk.choices[0].index)" # 0
+                    $delta = $choice.delta # eg. {"content":" you"}
+                    $index = "i$($choice.index)" # eg. 0
+    
+                    $c = $choices[$index] 
+                    if($null -eq $c) {
+                        $c = $choices[$index] = @{}
+                        $c.content = ""
                     }
-                    [OutHelper]::GptDelta($contentDelta, $false)
+    
+                    $contentPreDelta = $c.content
+                    $c = $choices[$index] = $this.ApplyDelta($c, $delta)
+    
+                    # only stream first choice (index: 0)
+                    if($index -ne "i0") {
+                        continue
+                    }
+
+                    # output content-delta if any
+                    $contentDelta = $c.content.Substring($contentPreDelta.Length)
+                    if($contentDelta -ne "") {
+                        if($firstContent) {
+                            [OutHelper]::GptDelta("", $true) # writes GPT:
+                            $firstContent = $false
+                        }
+                        [OutHelper]::GptDelta($contentDelta, $false)
+                    }    
                 }
             }
+        } catch {
+            [OutHelper]::NonCriticalError("Error while streaming response", $_)    
         } finally {
             $streamReader.Dispose()
         }
@@ -291,9 +326,9 @@ class OpenAiChat {
             [OutHelper]::GptDelta("`n", $false)
         }
 
-        # Write-Debug "Choices: $($choices | ConvertTo-Json -Depth 10)"
+        Write-Debug "Choices: $($choices | ConvertTo-Json -Depth 10)"
 
-        return [OpenAiChatMessage]::Parse($choices.i0) # todo: support for multiple choices
+        return [OpenAiChatMessage]::ParseChoices($choices.Values)
     }
 
     [string] Ask([string]$message) {
@@ -313,13 +348,8 @@ class OpenAiChat {
         if($null -eq $res) {
             return $null
         }
-
-        return [OpenAiChatMessage]::Parse($res.choices[0].message)
+        return [OpenAiChatMessage]::ParseChoices($res.choices)
     }
-
-    # [OpenAiChatMessage] GetAnswer([OpenAiChatMessage[]]$messages) {
-    #     return $this.GetAnswer($messages, $false)
-    # }
 
     [OpenAiChatMessage] GetAnswer([OpenAiChatMessage[]]$messages) {
         $cb = if($this.Stream) {

@@ -6,19 +6,26 @@ using module ".\OpenAiChat.psm1"
 class DialogMessage : OpenAiChatMessage {
     [bool]$Locked
 
+    DialogMessage() {
+    }
+
     DialogMessage([string]$role, [string]$content) {
         $this.Role = $role
         $this.Content = $content
     }
 
     static [DialogMessage] FromUser([string]$content) {
-        # return [DialogMessage]::parent::FromUser($content)
         return [DialogMessage]::new("user", $content)
     }
 
     static [DialogMessage] FromOpenAiChatMessage([OpenAiChatMessage]$message) {
-        # return [DialogMessage]::parent::FromUser($content)
-        return [DialogMessage]::new($message.Role, $message.Content)
+        # return [DialogMessage]::new($message.Role, $message.Content)
+        return New-Object -TypeName DialogMessage -Property @{
+            Role = $message.Role
+            Content = $message.Content
+            Locked = $false
+            AltChoices = $message.AltChoices
+        }
     }
 
     [string] GetMessageFormatted() {
@@ -41,7 +48,7 @@ class DialogMessage : OpenAiChatMessage {
     }
 
     static [object[]] AsObjects([DialogMessage[]]$messages) {
-        return ($messages | Select-Object -Property Locked, Role, Content)
+        return ($messages | Select-Object -Property Locked, Role, Content, AltChoices)
     }
 
     static [string] AsJson([DialogMessage[]]$messages) {        
