@@ -11,6 +11,14 @@ class OutHelper {
         Write-Host "ERR: $message" -ForegroundColor Red
     }
 
+    static NonCriticalError([string]$message, [System.Management.Automation.ErrorRecord]$errorRecord) {
+        if(![OutHelper]::HostOutput) { return }
+        Write-Host "ERR: $message. "`
+            "Exception: $($errorRecord.Exception.Message) "`
+            "StackTrace: $($errorRecord.ScriptStackTrace)" `
+            -ForegroundColor Red
+    }
+
     static Gpt([string]$message) {
         if(![OutHelper]::HostOutput) { return }
         if($message -eq $null) {
