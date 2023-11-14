@@ -6,6 +6,7 @@ pwsh -NoProfile -Command {
 
   Remove-Module PsChat -Force 2> $null
   Import-Module ../src/PsChat/PsChat.psd1 -Force 
+  # $DebugPreference="Continue"
 
   $scriptPath = "./tests.ps1"
   $scriptPath = Resolve-Path -Path $scriptPath
@@ -19,7 +20,10 @@ pwsh -NoProfile -Command {
     }
 
     Write-Host "Running test '$(PadRightUntil $test.Name 50)': " -NoNewline        
-    $success = Invoke-Command -ScriptBlock { param($command) & $command } -ArgumentList $test.Name
+    $success = Invoke-Command -ScriptBlock { 
+      param($command) 
+      & $command 
+    } -ArgumentList $test.Name
     if ($success) {
       Write-Host "Success" -ForegroundColor Green
     } else {

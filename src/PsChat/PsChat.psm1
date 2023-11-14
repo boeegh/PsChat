@@ -41,6 +41,9 @@ function Get-PsChatAnswer {
     .PARAMETER Top_P
     The cumulative probability for top-p sampling. Default is 1.
 
+    .PARAMETER NumberOfAnswers
+    The number of answers/choices to return. Default is 1.
+    
     .EXAMPLE
     Get-PsChatAnswer "What is your name?" # Asks OpenAI Chat for its name.
 
@@ -64,7 +67,8 @@ function Get-PsChatAnswer {
         [string]$OpenAiAuthToken,
         [string]$Model,
         [decimal]$Temperature,
-        [decimal]$Top_P
+        [decimal]$Top_P,
+        [ResultType]$ResultType = [ResultType]::LastAnswerAsText
     )
 
     Begin {
@@ -76,12 +80,28 @@ function Get-PsChatAnswer {
         if($Top_P) { $chatApi.Top_p = $Top_P }
         if($NumberOfAnswers -ne 1) { $chatApi.N = $NumberOfAnswers }
         if($Model) { $chatApi.Model = $Model }
+
+        if($NumberOfAnswers -gt 1 -and $ResultType -eq [ResultType]::LastAnswerAsText) {
+            Write-Warning ("NumberOfAnswers is greater than 1, but ResultType is set to LastAnswerAsText. "+ `
+                "This will only return the last answer. ResultType should be set to Objects to return all answers")
+        }
     }
 
     Process {
+        function Write-Answer($answer) {
+            switch($ResultType) {
+                None { return }
+                Objects { return $answer | Select-Object -Property Role, Content, AltChoices }
+                LastAnswerAsText {
+                    return $answer.Content
+                }
+            }                
+            Write-Output -InputObject $answer
+        }
+
         # handle array of hashtable/object, eg. @( @{ "role"="user"; "content"="hello" } )
         if($NoEnumerate -and $InputObject -is [array]) {
-            Write-Output -InputObject $chatApi.GetAnswer($InputObject).Content
+            Write-Answer $chatApi.GetAnswer($InputObject)
         } else {
             # iterate over each item in the pipeline
             foreach ($item in $InputObject) {
@@ -92,17 +112,17 @@ function Get-PsChatAnswer {
                 # handle string, eg. "hello"
                 if($item -is [string]) {
                     $messages += [OpenAiChatMessage]::FromUser($item)
-                    $answer = $chatApi.GetAnswer($messages).Content
+                    $answer = $chatApi.GetAnswer($messages)
                 }
 
                 # handle hashtable/object, eg. @{ "role"="user"; "content"="hello" }
                 if($item -is [Hashtable]) {
                     $messages += [OpenAiChatMessage]::Parse($item)
-                    $answer = $chatApi.GetAnswer($messages).Content
+                    $answer = $chatApi.GetAnswer($messages)
                 }
 
                 if($null -ne $answer) {
-                    Write-Output -InputObject $answer
+                    Write-Answer $answer
                 }
             }
         }
