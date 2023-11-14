@@ -63,7 +63,9 @@ class OpenAiChatMessage {
             $messages += [OpenAiChatMessage]::Parse($rawMessage)
         }
         $message = $messages[0]
-        $message.AltChoices = $messages[1..($messages.Count-1)]
+        if($messages.Count -gt 1) {
+            $message.AltChoices = $messages[1..($messages.Count-1)]
+        }
         return $message
     }
 
@@ -345,10 +347,12 @@ class OpenAiChat {
 
     [OpenAiChatMessage] ReadChoices([HttpResponseMessage]$response) {
         $res = $this.ReadResponseAsObject($response)
+        # Write-Debug $($res | ConvertTo-Json -Depth 10)
         if($null -eq $res) {
             return $null
         }
-        return [OpenAiChatMessage]::ParseChoices($res.choices)
+
+        return [OpenAiChatMessage]::ParseChoices($res.choices.message)
     }
 
     [OpenAiChatMessage] GetAnswer([OpenAiChatMessage[]]$messages) {
@@ -359,6 +363,7 @@ class OpenAiChat {
             [System.Func[HttpResponseMessage, object]]{param($response) return $this.ReadChoices($response) }
         }
         $message = $this.ChatCompletion($messages, $cb)
+        # Write-Debug "$($message.AltChoices.Count) alt choices"
 
         return $message
     }
