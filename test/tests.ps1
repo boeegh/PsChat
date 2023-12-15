@@ -2,12 +2,12 @@ $NAME_QUESTION = "What is your name?"
 $NAME_ANSWER = "OpenAI"
 
 function AssertContains($result, $expected) {
-  $success = ($result -join "").Contains($expected)
+  $success = ($result -join "").Contains($expected, [StringComparison]::InvariantCultureIgnoreCase)
   if($success -eq $false) {
-    Write-Host "Expected: ""$expected"". Actual: ""$result"". " -NoNewline
-  } 
+    Write-Warning "Expected: ""$expected"". Actual: ""$result"". "
+  }
   return $success
-} 
+}
 
 function AssertNotNull($result) {
   return $null -ne $result
@@ -35,7 +35,7 @@ function Get-PsChatAnswer-Object-As-Input-Array {
 }
 
 function Invoke-PsChat-Function-Test {
-  $result = Invoke-PsChat -Single -Question "Whats the uptime?" `
+  $result = Invoke-PsChat -Single -Question "Whats the uptime? Please include the word uptime the answer" `
      -Functions_Names @("Get-Uptime") `
      -NonInteractive `
      -ResultType Objects
@@ -49,5 +49,5 @@ function Invoke-PsChat-PreLoad-Prompt {
      -NonInteractive `
      -ResultType Objects
   $message = ($result | Where-Object { $_.Role -match "assistant" })
-  AssertContains $message "```powershell"
+  AssertContains $message.Content "```powershell"
 }
