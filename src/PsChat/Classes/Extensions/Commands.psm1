@@ -9,6 +9,7 @@ using module "..\Commands\CompressionCommand.psm1"
 using module "..\Commands\ClipboardCommand.psm1"
 using module "..\Commands\ApiSettingsCommand.psm1"
 using module "..\Commands\ChordsCommand.psm1"
+using module "..\Commands\SaveAudioCommand.psm1"
 
 class Commands {
     [Options]$Options
@@ -23,7 +24,8 @@ class Commands {
             [CompressionCommand]::new(),
             [ClipboardCommand]::new(),
             [ApiSettingsCommand]::new(),
-            [ChordsCommand]::new()
+            [ChordsCommand]::new(),
+            [SaveAudioCommand]::new()
         )
     }
 
