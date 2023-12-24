@@ -93,8 +93,27 @@ class Dialog {
         $this.Messages += $message
     }
 
-    InsertMessage($role,$content) {
-        $this.Messages = @( [DialogMessage]::new($role, $content) ) + $this.Messages
+    InsertMessage([DialogMessage]$message) {
+        $this.InsertMessage($message, 0)
+    }
+
+    InsertMessageAfterLocked([DialogMessage]$message) {
+        $index = 0
+        do {
+            if(!$this.Messages[$index].Locked) {
+                break
+            }
+            $index++
+        } while ($index -lt $this.Messages.Count)
+        $this.InsertMessage($message, $index)
+    }
+
+    InsertMessage([DialogMessage]$message, $index) {
+        if($index -gt 0) {
+            $this.Messages = $this.Messages[0..($index-1)] + @( $message ) + $this.Messages[$index..($this.Messages.Count-1)]
+        } else {
+            $this.Messages = @( $message ) + $this.Messages
+        }
     }
 
     PromptUser() {

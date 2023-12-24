@@ -10,7 +10,7 @@ class ShortTerm {
     [bool]$Enabled = $true
     [bool]$Verbose = $false
     [bool]$Compress = $true
-    [string]$CompressPrompt = "Provide a short summary of the previous messages? Start with: Our dialog is about"
+    [string]$CompressPrompt = "Provide a short summary of the previous messages? Start with: Our dialog so far is about"
 
     [bool] IsTokenBased() {
         return $this.WordCountThreshold -eq 0
@@ -78,7 +78,6 @@ class ShortTerm {
                     return $true
                 }
 
-                # $removedWords += [Dialog]::CalculateWords(@($_))
                 $removedCount += if($this.IsTokenBased()) { $_.ApproxTokenCount() } else { $_.WordCount() }
                 $removedMessages += $_
 
@@ -90,7 +89,9 @@ class ShortTerm {
             if($this.Compress) {
                 $compressed = $this.CompressMessages($removedMessages)
                 if($compressed) {
-                    $dialog.InsertMessage("assistant", $compressed)
+                    $m = [DialogMessage]::new("system", $compressed)
+                    $dialog.InsertMessageAfterLocked($m)
+                    # $dialog.InsertMessage($m)
                 }
             }
 

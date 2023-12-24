@@ -47,7 +47,6 @@ class OpenAiAudio {
         }
         $url = "$($this.Baseurl)$url"
         $headers = @{ "Authorization" = "Bearer $($this.AuthToken)" }
-        $response = $null
 
         if(!$this.httpClient) {
             $this.httpClient = [HttpClient]::new()
@@ -76,10 +75,9 @@ class OpenAiAudio {
             return $response
         } catch {
             $failureBody = ""
-            # try to get the response body
             try {
                 $failureBody = $response.Content.ReadAsStringAsync().Result
-            } catch {
+            } catch {                
             }
             if($this._debug) {
                 [OutHelper]::NonCriticalError("Error while calling api", $_)    

@@ -13,6 +13,11 @@ class SaveAudio {
     [string]$AssistantVoice = "onyx"
     [string]$Response_Format = $null
     [decimal]$Speed = $null
+    [bool]$ShowProgress = $true
+    [int]$TurnDelay = $null
+    [bool]$ConcatUsingFfmpeg = $true
+    [string]$FfmpegExecutablePath = $null
+    [int]$FfmpegQuality = $null
 
     [string] GetName() {
         return "./pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").mp3"
@@ -26,7 +31,12 @@ class SaveAudio {
         if($this.Response_Format) { $helper.Response_Format = $this.Response_Format }
         if($this.UserVoice) { $helper.UserVoice = $this.UserVoice }
         if($this.AssistantVoice) { $helper.AssistantVoice = $this.AssistantVoice }
-
+        if($this.TurnDelay) { $helper.TurnDelay = $this.TurnDelay }
+        $helper.ConcatUsingFfmpeg = $this.ConcatUsingFfmpeg
+        $helper.ShowProgress = $this.ShowProgress
+        if($this.FfmpegExecutablePath) { $helper.FfmpegExecutablePath = $this.FfmpegExecutablePath }
+        if($this.FfmpegQuality) { $helper.FfmpegQuality = $this.FfmpegQuality }
+        
         $helper.AuthToken = $this.ChatApi.AuthToken
         try {
             $helper.DialogToAudioFile($dialog, $this.Path)

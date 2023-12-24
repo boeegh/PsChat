@@ -124,6 +124,11 @@ All extension parameters are optional.
 | SaveAudio | AssistantVoice | string | Maps to OpenAI voice parameter for assistants voice |
 | SaveAudio | Response_Format | string | Maps to OpenAI Response_Format paramter |
 | SaveAudio | Speed | decimal | Maps to OpenAI speed parameter |
+| SaveAudio | ShowProgress | bool | Shows Powershell progress bar while processing. Defaults to `$true` |
+| SaveAudio | ConcatUsingFfmpeg | bool | FFmpeg: Merge audio clips using ffmpeg. Defaults to `$true` |
+| SaveAudio | TurnDelay | int | FFmpeg: Amount of time in ms between each audio clip. Defaults to `600` |
+| SaveAudio | FfmpegExecutablePath | string | FFmpeg: Executable to use |
+| SaveAudio | FfmpegQuality | int | FFmpeg: Audio quality from 1 (best) - 10 (worst). Defaults to `3` |
 | ShortTerm | Enabled | bool | Enable/disable extension. Defaults to `$true`. |
 | ShortTerm | Verbose | bool | Makes the extension more talkative. |
 | ShortTerm | Compress | bool | Compresses messages that are due to be removed. |
