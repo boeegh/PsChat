@@ -5,7 +5,7 @@ param(
 $script = {
 	Invoke-PsChat -Api_Verbose $true `
 		-Api_Model "WizardLM-30B-Uncensored.Q4_K_M" `
-		-Api_Baseurl "http://192.168.42.17:8000/v1/" `
+		-Api_Baseurl "http://local-llm:8000/v1/" `
 		-Api_Temperature 0.6 `
 		-Api_Stream $true `
 		-Api_Max_Tokens 1024 `

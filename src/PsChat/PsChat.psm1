@@ -209,7 +209,7 @@ function Invoke-PsChat {
     $options.NonInteractive = $NonInteractive
     $options.SkipQuestion = $SkipQuestion
 
-    # disable all output if non-interactive
+    # disable all output if non-interactive (this should be refactored!)
     [OutHelper]::HostOutput = -not($NonInteractive)
 
     # initialize the api

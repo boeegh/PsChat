@@ -103,7 +103,7 @@ $files = if($null -eq $Files) { Get-Relevant-Files-Recursive -Path $Path } else 
 
 # approximate cost
 if($IgnoreCostPrompt -eq $false) {
-  $sizeTotal = $files | Measure-Object -Property Length -Sum  
+  $sizeTotal = $files | Measure-Object -Property Length -Sum
   $sizeKb = [Math]::Round($sizeTotal.Sum / 1000)
   $costInput = $sizeKb / $charsPerToken * $modelInfo.costInput
   $costOutput = $files.Count * $modelInfo.costOutput # assume max one suspect line per file
@@ -119,14 +119,14 @@ if($IgnoreCostPrompt -eq $false) {
 foreach($file in $files) {
   Write-Debug "Analyzing: $($file.FullName)"
   $content = Get-Content -Path $file.FullName -Raw
-  
+
   # get each chunk of content (max characterBufferLength)
-  for($i=0; $i -lt $content.Length; $i += $characterBufferLength) {        
+  for($i=0; $i -lt $content.Length; $i += $characterBufferLength) {
     # construct prompt consisting of chunk of code/text + promptSuffix
     $chunk = $content.Substring($i, [Math]::Min($characterBufferLength, $content.Length - $i))
     $prompt = "###`n$chunk`n###`n$promptSuffix"
 
-    # invoke openai/llm api 
+    # invoke openai/llm api
     $json = Invoke-PsChat -Question $prompt -Single -NonInteractive `
       -Api_Temperature $Temperature `
       -Api_Model $Model `
@@ -142,7 +142,7 @@ foreach($file in $files) {
       $result = ConvertFrom-Json $json
     } catch {
       if($DisplayJsonParseErrors) {
-        Write-Error -ErrorRecord $_ -RecommendedAction "Invalid JSON: $json"             
+        Write-Error -ErrorRecord $_ -RecommendedAction "Invalid JSON: $json"
       }
       continue
     }

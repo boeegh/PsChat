@@ -10,6 +10,7 @@ using module ".\Extensions\PreLoad.psm1"
 using module ".\Extensions\Commands.psm1"
 using module ".\Extensions\ShortTerm.psm1"
 using module ".\Extensions\Functions.psm1"
+using module ".\Extensions\SaveAudio.psm1"
 
 class PsChatUi {
     [string]$OpenAiAuthKey
@@ -33,6 +34,7 @@ class PsChatUi {
                 [ShortTerm]::new()
                 [Functions]::new()
                 [WordCountWarning]::new()
+                [SaveAudio]::new()
             ))
     }
 
@@ -52,16 +54,22 @@ class PsChatUi {
                     break
                 }
             }
+            if($this.Options.NonInteractive -and $this.Options.SingleQuestion) {
+                 break
+            }
 
             # execute extension logic before a question
             $dlg = $this.ExtensionContainer.Invoke("BeforeQuestion", $dlg)
 
+            # if($this.Options.NonInteractive -eq $false) {
+            #     $dlg.PromptUser()
+            # }
             $dlg.PromptUser()
 
             # execute extension logic after a question
             $dlg = $this.ExtensionContainer.Invoke("AfterQuestion", $dlg)
 
-        } while ($dlg.Question -ne "q" )
+        } while ($dlg.Question -ne "q")
 
         $this.ExtensionContainer.Invoke("AfterChatLoop", $dlg) | Out-Null
         return $dlg
