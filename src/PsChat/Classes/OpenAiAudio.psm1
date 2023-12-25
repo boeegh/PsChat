@@ -69,7 +69,7 @@ class OpenAiAudio {
             }
         
             if($this._debug) {
-                Write-Debug "Response:`n$($response | ConvertTo-Json -Depth 10)"            
+                Write-Debug "OpenAiAudio: Response:`n$($response | ConvertTo-Json -Depth 10)"            
             }
 
             return $response
@@ -104,6 +104,9 @@ class OpenAiAudio {
 
     SpeechToFile([OpenAiAudioSpeechRequest]$request, [string]$filePath) {
         $bytes = $this.GetBytes("audio/speech", $request)
+        if($this._debug) {
+            Write-Debug "OpenAiAudio: Writing $($bytes.LongLength) bytes to file: $filePath"
+        }
         [File]::WriteAllBytes($filePath, $bytes)
     }
 }

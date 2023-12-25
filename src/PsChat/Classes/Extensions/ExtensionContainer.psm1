@@ -64,7 +64,7 @@ class ExtensionContainer {
                     $propValue = $this.EnsureType($prop.PropertyType, $propValue)
                     $prop.SetValue($ext, $propValue)
                 } else {
-                    [OutHelper]::NonCriticalError("ExtensionContainer: $($prop.Name) not found on $($type.Name)")
+                    [OutHelper]::NonCriticalError("ExtensionContainer: $propName not found on $($type.Name)")
                 }
             }
         }

@@ -18,6 +18,7 @@ class SaveAudio {
     [bool]$ConcatUsingFfmpeg = $true
     [string]$FfmpegExecutablePath = $null
     [int]$FfmpegQuality = $null
+    [bool]$Debug = $false
 
     [string] GetName() {
         return "./pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").mp3"
@@ -26,6 +27,7 @@ class SaveAudio {
     Save([Dialog]$dialog) {
         if(!$this.Enabled) { return }
         $helper = [AudioHelper]::new()
+        $helper._debug = $this.Debug
         if($this.Model) { $helper.Model = $this.Model }
         if($this.Speed) { $helper.Speed = $this.Speed }  
         if($this.Response_Format) { $helper.Response_Format = $this.Response_Format }
