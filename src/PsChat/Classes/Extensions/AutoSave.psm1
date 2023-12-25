@@ -8,7 +8,7 @@ class AutoSave {
     [bool]$Enabled = $false
 
     [string] GetName() {
-        return "./pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").json"
+        return "pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").json"
     }
 
     Save([Dialog]$dialog) {
