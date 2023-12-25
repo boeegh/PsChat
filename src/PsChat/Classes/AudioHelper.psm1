@@ -21,7 +21,7 @@ class AudioHelper {
         $audioApi._debug = $this._debug
         if(!$fileName) {
             $ext = if($this.Response_Format) { $this.Response_Format } else { "mp3" }
-            $fileName = "dialog-$(Get-Date -Format "yyyyMMdd_HHmmss").$ext"
+            $fileName = (Join-Path $($PWD) "dialog-$(Get-Date -Format "yyyyMMdd_HHmmss").$ext")
         }
 
         if(!$this.FfmpegExecutablePath) {

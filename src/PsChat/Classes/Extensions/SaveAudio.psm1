@@ -21,7 +21,8 @@ class SaveAudio {
     [bool]$Debug = $false
 
     [string] GetName() {
-        return "pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").mp3"
+        $ext = if($this.Response_Format) { $this.Response_Format } else { "mp3" }
+        return (Join-Path $($PWD) "pschat-$(Get-Date -Format "yyyy-MM-dd-HHmmss").$ext")
     }
 
     Save([Dialog]$dialog) {
